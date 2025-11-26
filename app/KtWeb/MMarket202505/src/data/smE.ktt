@@ -1,0 +1,28 @@
+// Copyright 30-Mar-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary entry.
+
+import "smVal";
+
+/// Sumary entry type.
+(smE) [. s(smVal)(smVal)(smVal)(smVal)];
+
+/// Constructor.
+///   mdId: Model identifier.
+///   last: Last best value.
+///   avg : Average best value.
+///   dev : Deviation best value (lower).
+///   cavg: 'avg - dev' best value.
+/// \s,<smVal>,<smVal>,<smVal>,<smVal> -> <smE>
+//: [. s(smVal)(smVal)(smVal)(smVal)]
+new : mdId, last, avg, dev, cavg;
+
+//: [(smE)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[mdId]),
+    smVal.toJs(o[last]),
+    smVal.toJs(o[avg]),
+    smVal.toJs(o[dev]),
+    smVal.toJs(o[cavg])
+  ]);;

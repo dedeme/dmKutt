@@ -1,0 +1,75 @@
+// Copyright 16-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Paths page.
+
+import "libdm/svrp";
+import "db";
+import "data/conf";
+import "data/dpath";
+import "db/confTb";
+import "db/pathsTb";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "changeShowAll": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      :conf cf = confTb.read();
+      confTb.write(conf.new(cf.spath, !cf.showAll));
+
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    "new": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      id, pth = [. js.rs(Rq\id), js.rs(Rq\pth)];
+      :arr Ps = pathsTb.read();
+      Ps.push(dpath.new(id, pth, true, false));
+      pathsTb.write(Ps);
+
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    "changeShown": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      id = js.rs(Rq\id);
+      Ps = pathsTb.read();
+      for (:dpath p = Ps) if (p.id == id) p.isShown = !p.isShown;
+      pathsTb.write(Ps);
+
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    "delete": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      id = js.rs(Rq\id);
+      :arr Ps = pathsTb.read();
+      Ps.filterIn(\:dpath p -> return p.id != id;);
+      pathsTb.write(Ps);
+
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    "modify": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      id, newId, pth = [. js.rs(Rq\id), js.rs(Rq\newId), js.rs(Rq\pth)];
+      :arr Ps = pathsTb.read();
+      for (:dpath p = Ps) if (p.id == id) {
+        p.id = newId;
+        p.spath = pth;
+      }
+      pathsTb.write(Ps);
+
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    default: return throw([]/s/, "Value of rq (" + rq + ") is not valid");
+  }
+};

@@ -1,0 +1,23 @@
+// Copyright 18-Aug-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Fixed incomes equity table.
+
+import "../accDb";
+_
+//: [|s]
+fpath = \ -> return file.cat(accDb.dpath(), ["fxAuctions.tb"]);;
+
+/// Initializes data base
+//: [|]
+init = \ -> {
+  writeJs("[]");
+};
+
+/// Reads table.
+//: [|s]
+readJs = \ -> return file.read(fpath());;
+
+/// Writes table.
+//: [s|]
+writeJs = \value -> file.write(fpath(), value);;

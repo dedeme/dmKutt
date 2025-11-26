@@ -1,0 +1,29 @@
+// Copyright 21-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Constants.
+
+/// Application name.
+appName = "VViewer";
+/// Application version.
+version = "202504";
+
+/// Videos root
+originRoot = "/media/deme/Elements/video";
+
+/// Application data root.
+//: [|s]
+dataPath = \->
+  return file.cat(sys.home(), [".dmKuttApp", "KutPost", appName]);;
+
+/// Snapshots directory.
+//: [|s]
+snapshotPath = \-> return file.cat(dataPath(), ["snapshots"]);;
+
+/// List directory.
+//: [|s]
+listPath = \-> return file.cat(dataPath(), ["lists"]);;
+
+/// Current list.
+//: [|s]
+currentPath = \-> return file.cat(dataPath(), ["list.tb"]);;

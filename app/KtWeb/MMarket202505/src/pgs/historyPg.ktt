@@ -1,0 +1,82 @@
+// Copyright 30-Mar-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Companay history page.
+
+import "libdm/svrp";
+import "data/evE";
+import "data/upRs";
+import "db";
+import "cts";
+
+// Arithmetic calculus
+cAvg, cLast, cCorr =;
+
+// Source data
+sPts, sReal, sAcc, sProf, sOrder =;
+
+//: [{s}|s]
+process = \:dic Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "chartData": {
+      mdId = js.rs(Rq\mdId);
+      period = js.rs(Rq\period);
+      ix = js.ri(Rq\inv);
+      calculus = js.ri(Rq\calculus);
+      dataSource = js.ri(Rq\dataSource);
+
+      :arr Dates = db.dates(period);
+      :arr RDates = []/s/;
+      salesSumV = [. 0.0];
+      Values = []/[f]/;
+      for (d = Dates) {
+        Evs = db.read(period, d, mdId);
+
+        if (!Evs) continue; // No data available
+        RDates.push(d);
+
+        :evE ev = Evs[ix];
+        :upRs rs = switch(calculus) {
+          cAvg: ev.avg;
+          cLast: ev.eval;
+          default: ev.crr;
+        };
+
+        salesSumV! += rs.sales;
+
+        if (rs.sales < cts.minSales) {
+          Values.push([]/f/);
+        } else {
+          if (dataSource != sOrder) {
+            Values.push(switch (dataSource) {
+              sPts: [rs.pon * 1000.0];
+              sReal: [rs.real];
+              sAcc: [rs.acc];
+              default: [rs.prof];
+            });
+          } else {
+            p = rs.pon;
+            posV = [. 1];
+            for (:evE e = Evs) {
+              :upRs rsTmp = switch(calculus) {
+                cAvg: e.avg;
+                cLast: e.eval;
+                default: e.crr;
+              };
+              if (rsTmp.pon > p) posV! += 1;
+            }
+            Values.push([math.itof(posV!)]);
+          }
+        }
+      }
+
+      return svrp.mk({
+        Dates: arr.toJs(RDates, js.ws),
+        Values: js.wa(Values.map(\:arr v -> return v.toJs(js.wf);)),
+        sales: js.wf(salesSumV! / math.itof(RDates.size()))
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

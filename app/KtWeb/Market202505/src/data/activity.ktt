@@ -1,0 +1,40 @@
+// Copyright 18-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Activity data.
+
+import "cts";
+
+/// Activity type.
+
+(activity) [. is];
+
+/// Constructor.
+///   tm  : Time of record this data.
+///   actv: One of cts.actXXX
+//: [. is]
+new : tm, actv;
+
+/// Constructor with time.now as 'tm'.
+///   act: One of cts.actXXX
+//: [s|(activity)]
+newNow = \act -> return new(time.now(), act);;
+
+/// Default constructor.
+//: [|(activity)]
+newDefault = \ ->  return new(1652263649990, cts.sleeping);;
+
+//: [(activity)|s]
+toJs = \o -> return js.wa([
+    js.wi(o[tm]),
+    js.ws(o[actv])
+  ]);;
+
+//: [s|(activity)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.ri(A[tm]),
+    js.rs(A[actv])
+  ];
+};

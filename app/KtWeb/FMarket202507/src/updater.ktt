@@ -1,0 +1,185 @@
+// Copyright 27-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Update data base.
+
+import "libdm/log";
+import "libmkt/cts" : mktCts;
+import "libmkt/quotes";
+import "libmkt/models";
+import "libmkt/model";
+import "libmkt/strategy";
+import "extDb/cosTb";
+import "extDb/quotesDb";
+import "data/inv";
+import "data/invTable";
+import "cts";
+import "db";
+import "fns";
+
+/// Run updater
+//: [|]
+run = \ -> {
+  :quotes qts = quotesDb.read([cosTb.mainCo()]);
+  marketLastDate = arr.peek(qts.Dates);
+  :arr fmarketDs = db.periodDates(cts.daily);
+  sz = fmarketDs.size();
+  previousOp = []/(invTable)/;
+  if (sz > 1) {
+    fmarketLastDate = arr.peek(fmarketDs);
+    if (fmarketLastDate > marketLastDate) {
+      log.error(str.fmt(
+        "Update fail:\n" +
+        "Last date of %v (%v) is grater than last date of daily data (%v)",
+        [. cosTb.mainCo(), marketLastDate, fmarketLastDate]
+      ));
+      return;
+    }
+    previousOp.push(invTable.fromJs(db.read(cts.daily,
+      fmarketLastDate < marketLastDate
+        ? fmarketLastDate
+        : fmarketDs[sz - 2]
+    )));
+  }
+
+  invTbOp = mkInvTable(previousOp);
+  if (!invTbOp) return;
+  :invTable invTb = invTbOp!;
+  j = invTb.toJs();
+
+  // Update daily
+
+  db.write(cts.daily, marketLastDate, j);
+
+  :arr fmarketDs2 = db.periodDates(cts.daily);
+  sz2 = fmarketDs2.size();
+  if (sz2 > 1) {
+    d0 = time.fromStr(fmarketDs2.peek())!;
+    d1 = time.fromStr(fmarketDs2[sz2 - 2])!;
+
+    // Update weekly
+    if (fns.weekInYear(d0) != fns.weekInYear(d1))
+      db.write(cts.weekly, marketLastDate, j);
+
+    // Update monthly
+
+    if (time.month(d0) != time.month(d1))
+      db.write(cts.monthly, marketLastDate, j);
+  }
+
+  db.clean();
+};
+
+// Calculates a new table of results.
+//: [[(invTable)]|[(invTable)]]
+mkInvTable = \previousOp -> {
+  :quotes qts = quotesDb.read(cosTb.read());
+  Closes = qts.Closes;
+  Bases = cts.ParamBases();
+  BaseIncs = cts.ParamBaseIncs();
+  Invs = []/(inv)/;
+  for (mdId, Params = Bases) {
+    mdOp = models.get(mdId);
+    if (!mdOp) {
+      log.error("Model " + mdId + " not found");
+      return [];
+    }
+    md = mdOp!;
+    psz = arr.size(Params);
+    Incs = BaseIncs[mdId];
+    base0V = [Params[0]];
+    inc0 = Incs[0];
+    for (i = 0:20) {
+      if (psz == 1) {
+        Prs = [base0V!];
+        Refs = model.refs(md, Closes, Prs);
+        R = strategy.openSimple2(md, qts, Refs);
+        sales = R\sales;
+        assets = (R\assets) / mktCts.initialCapital;
+        if (!previousOp) {
+          Invs.push(inv.new(mdId, Prs, assets, assets, sales, 1));
+        } else {
+          :invTable prev = previousOp!;
+          :arr PrevInvs = prev.Invs;
+          pInvOp = PrevInvs.find(\:inv i ->
+            return i.mdId == mdId & i.Params == Prs;
+          );
+          if (!pInvOp) {
+            Invs.push(inv.new(mdId, Prs, assets, assets, sales, 1));
+            continue;
+          }
+
+          :inv pInv = pInvOp!;
+          n = pInv.nSamples;
+          imul = n >= cts.evalDays ? cts.evalDays - 1 : n;
+          mul = math.itof(imul);
+          idiv = imul + 1;
+          div = math.itof(idiv);
+          Invs.push(inv.new(
+            mdId, Prs, assets,
+            (pInv.avg * mul + assets) / div,
+            (pInv.sales * mul + sales) / div,
+            idiv
+          ));
+        }
+      } else {
+        base1V = [Params[1]];
+        inc1 = Incs[1];
+        for (j = 0:20) {
+          Prs = [base0V!, base1V!];
+          Refs = model.refs(md, Closes, Prs);
+          R = strategy.openSimple2(md, qts, Refs);
+          sales = R\sales;
+          assets = (R\assets) / mktCts.initialCapital;
+          if (!previousOp) {
+            Invs.push(inv.new(mdId, Prs, assets, assets, sales, 1));
+          } else {
+            :invTable prev = previousOp!;
+            :arr PrevInvs = prev.Invs;
+            pInvOp = PrevInvs.find(\:inv i ->
+              return i.mdId == mdId & i.Params == Prs;
+            );
+            if (!pInvOp) {
+              Invs.push(inv.new(mdId, Prs, assets, assets, sales, 1));
+              continue;
+            }
+
+            :inv pInv = pInvOp!;
+            n = pInv.nSamples;
+            imul = n >= cts.evalDays ? cts.evalDays - 1 : n;
+            mul = math.itof(imul);
+            idiv = imul + 1;
+            div = math.itof(idiv);
+            Invs.push(inv.new(
+              mdId, Prs, assets,
+              (pInv.avg * mul + assets) / div,
+              (pInv.sales * mul + sales) / div,
+              idiv
+            ));
+          }
+          base1V! += inc1;
+        }
+      }
+      base0V! += inc0;
+    }
+  }
+
+  Ixs = []/[.i(inv)]/;
+  for (i, iv = Invs) Ixs.push([. i, iv]);
+
+  Ixs.sort(\E1, E2 -> {
+    :inv i1 = E1[1];
+    :inv i2 = E2[1];
+    return i1.last > i2.last;
+  });
+  LastIx = Ixs.map(\E -> return E[0];);
+
+  Ixs.sort(\E1, E2 -> {
+    :inv i1 = E1[1];
+    :inv i2 = E2[1];
+    return i1.avg > i2.avg;
+  });
+  AvgIx = Ixs.map(\E -> return E[0];);
+
+  return [invTable.new(Invs, LastIx, AvgIx)];
+};

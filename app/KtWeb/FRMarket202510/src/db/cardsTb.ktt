@@ -1,0 +1,27 @@
+// Copyright 03-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Fleas data base
+
+import "data/cardId";
+import "cts";
+import "db";
+
+/// Returns the fleas path.
+//: [|s]
+cardsPath = \ -> return file.cat(cts.dataPath(), ["cards"]);;
+
+/// Initializes data base
+//: [|]
+init = \ -> file.write(cardsPath(), "[]");;
+
+/// Reads investors card identifiers.
+//: [|[(cardId)]]
+read = \ -> return arr.fromJs(file.read(cardsPath()), cardId.fromJs);;
+
+/// Writes investors card identifiers.
+///   Data: Card idenfitiers data.
+//: [[(cardId)]|]
+write = \Cards ->
+  file.write(cardsPath(), arr.toJs(Cards, cardId.toJs));;
+

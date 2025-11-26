@@ -1,0 +1,39 @@
+// Copyright 20-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Top investor data definition.
+
+import "cts";
+
+/// Top type.
+(top) [. s[f]f];
+
+/// Constructor.
+///   mdId    : Model id (MM, SSBB0, ...)
+///   Params  : Investor parameters (1 or 2 values with cts.ParamFmts decimals).
+///   assets  : Assets (Base 1, six decimals)
+//: [. s[f]f]
+new : mdId, Params, assets;
+
+//: [(top)|s]
+toJs = \o -> {
+  md = o[mdId];
+  Fmts = cts.paramFmts()[md];
+  Ps = []/s/;
+  for (i, p = o[Params]) Ps.push(js.wf2(p, Fmts[i]));
+  return js.wa([
+    js.ws(md),
+    js.wa(Ps),
+    js.wf2(o[assets], 6)
+  ]);
+};
+
+//: [s|(top)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[0]),
+    arr.fromJs(A[1], js.rf),
+    js.rf(A[2])
+  ];
+};

@@ -1,0 +1,37 @@
+// Copyright 20-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Program starting
+
+import "init";
+
+{
+  help = """
+    Use VViewer [init | help | clientRequest]
+
+    init can be used at any time and updates the videos data base.
+  """;
+
+  :arr Args = sys.args();
+  if (Args.size() != 1) {
+    sys.print("Request is missing");
+    return;
+  }
+
+  rq = Args[0];
+  switch (rq) {
+    "help": sys.println(help);
+    "init": init.run();
+    default: try {
+      Rq = js.ro(rq);
+      source = js.rs(Rq\source);
+      sys.print(switch(source) {
+//        "LogPg": logPg.process(Rq);
+
+        default: throw([]/s/, "Value of source (" + source + ") is not valid");
+      });
+    } catch (e) {
+      sys.printError(e);
+    }
+  }
+}

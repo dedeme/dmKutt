@@ -1,0 +1,35 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Companies table data.
+
+import "co";
+import "ibexCo";
+
+/// Companies table type
+(cos) [. s[(co)]];
+
+/// Constructor.
+///   mainNick:
+///   Cos     :
+//: [. s[(co)]]
+new : mainNick, Cos;
+
+/// Default constructor.
+//: [|(cos)]
+newDefault = \ -> return new("", []/(co)/);;
+
+//: [(cos)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[mainNick]),
+    arr.toJs(o[Cos], co.toJs)
+  ]);;
+
+//: [s|(cos)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[mainNick]),
+    arr.fromJs(A[Cos], co.fromJs)
+  ];
+};

@@ -1,0 +1,25 @@
+// Copyright 22-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Management of Ibex companies to operate page.
+
+import "libdm/svrp";
+import "db/acc/fxEquityTb";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      return svrp.mk({
+        fxEquity: js.wi(fxEquityTb.read())
+      });
+    }
+    "setFxEquity": {
+      value = js.ri(Rq\value);
+      fxEquityTb.write(value);
+      return svrp.mkEmpty();
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

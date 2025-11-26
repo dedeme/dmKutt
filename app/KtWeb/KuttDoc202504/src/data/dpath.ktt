@@ -1,0 +1,33 @@
+// Copyright 15-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Path data.
+
+(dpath) [. ssbb];
+
+/// Constructor.
+///   id     : Path identifier.
+///   spath  : Source path.
+///   isShown: 'true' if the path should be shown.
+///   isValid: 'true' if the path is a valid one.
+//: [. ssbb]
+new : id, spath, isShown, isValid;
+
+//: [(dpath)|s]
+toJs = \o -> return js.wa([
+    js.ws(o.id),
+    js.ws(o.spath),
+    js.wb(o.isShown),
+    js.wb(o.isValid)
+  ]);;
+
+//: [s|(dpath)]
+fromJs = \j -> {
+  a = js.ra(j);
+  return [.
+    js.rs(a[id]),
+    js.rs(a[spath]),
+    js.rb(a[isShown]),
+    js.rb(a[isValid])
+  ];
+};

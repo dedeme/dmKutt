@@ -1,0 +1,36 @@
+// Copyright 03-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Data to calculate references
+
+(coData) [. bf[f]];
+
+/// Constructor.
+///   isSold: 'true' if company is not in stock.
+///   ref   : Current reference.
+///   Qts   : Array used for historic of closes.
+//: [. bf[f]]
+new : isSold, ref, Qts;
+
+/// Initial constructor.
+//: [|(coData)]
+new0 = \ -> return [. false, -1.0, []/f/];;
+
+//: [(coData)|s]
+toJs = \o -> {
+  return js.wa([
+    js.wb(o[isSold]),
+    js.wf2(o[ref], 4),
+    arr.toJs(o[Qts], \q -> return js.wf2(q, 4);)
+  ]);
+};
+
+//: [s|(coData)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rb(A[0]),
+    js.rf(A[1]),
+    arr.fromJs(A[2], js.rf)
+  ];
+};

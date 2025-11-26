@@ -1,0 +1,26 @@
+// Copyright 30-Mar-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary value.
+
+/// Summary value type.
+(smVal) [. if];
+
+/// Constructor.
+///   ix : Index in results array.
+///   val: Value.
+//: [. if]
+new : ix, val;
+
+/// Update values of 'this'.
+//: [(smVal)if|]
+up = \this, newIx, newVal -> {
+  this[ix] = newIx;
+  this[val] = newVal;
+};
+
+//: [(smVal)|s]
+toJs = \o -> return js.wa([
+    js.wi(o[ix]),
+    js.wf(o[val])
+  ]);;

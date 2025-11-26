@@ -1,0 +1,65 @@
+// Copyright 29-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary page.
+
+import "libdm/svrp";
+import "data/invTable";
+import "data/inv";
+import "data/cardId";
+import "data/card";
+import "db";
+import "cts";
+import "fns";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      md = js.rs(Rq\md);
+      params = js.rs(Rq\params);
+      period = js.rs(Rq\period);
+      id = md + params;
+      mdV = [md];
+      paramsV = [params];
+
+      :arr Dates = db.periodDates(period);
+      if (Dates.size() < 2) {
+        return svrp.mk({
+          Cds: "[]",
+          cd: "[]"
+        });
+      }
+
+      :invTable tb = invTable.fromJs(db.read(period, Dates.peek()));
+      if (!arr.any(tb.Invs, \:inv iv -> return iv.id() == id;)) {
+        :inv iv = tb.Invs[tb.AvgIx[0]];
+        mdV! = iv.mdId;
+        paramsV! = iv.paramsToStr();
+      }
+
+      id2 = mdV! + paramsV!;
+      :arr Cds = db.readCards();
+      if (!Cds.any(\:cardId c -> return c.id() == id2;)) {
+        Cds.unshift(cardId.new(mdV!, arr.fromJs(paramsV!, js.rf)));
+        db.writeCards(Cds);
+      }
+
+      :card cd = fns.mkCard(period, mdV!, paramsV!);
+
+      return svrp.mk({
+        Cds: arr.toJs(Cds, cardId.toJs),
+        cd: cd.toJs()
+      });
+    }
+    "remove": {
+      cd = cardId.fromJs(Rq\cd);
+      cId = cd.id();
+      :arr Cds = db.readCards();
+      db.writeCards(Cds.filter(\:cardId c -> return c.id() != cId;));
+      return svrp.mkEmpty();
+    }
+  }
+  throw "Value of rq (" + rq + ") is not valid";
+};

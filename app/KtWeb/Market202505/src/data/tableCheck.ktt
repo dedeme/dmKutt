@@ -1,0 +1,69 @@
+// Copyright 18-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Table of differences.
+/// It contains differences between values in 'quotes table' and values in
+/// server.
+
+(tableCheck) [. ssssffb];
+
+/// Field type
+///  "o"(open), "c"(close), "x"(maximum, "n"(minimum) or "v"(volume)
+o, c, x, n, v =:;
+
+/// Constructor.
+///   nick   : Company nick.
+///   date   : Date of difference in format YYYYMMDD.
+///   field  : Field of difference: "o"(open), "c"(close), "x"(maximum,
+///            "n"(minimum) or "v"(volume)
+///   svId   : Identifier of checked server.
+///   tbValue: Value in table.
+///   svValue: Value in server.
+///   deleted: MUTABLE FIELD. 'true' if deleted by user.
+//: [. ssssffb]
+new : nick, date, field, svId, tbValue, svValue, deleted;
+
+/// Returns 'true' if fields 'nick', 'date', 'field' and 'svId' of 't1' and
+/// 't2' are equals.
+/// \<tableCheck>, <tableCheck> -> b
+//: [(tableCheck)(tableCheck)|b]
+eqSource = \t1, t2 ->
+  return t1[nick] == t2[nick] &
+    t1[date] == t2[date] &
+    t1[field] == t2[field] &
+    t1[svId] == t2[svId]
+  ;;
+
+/// Returns 'true' if fields 'nick', 'date' and 'field' of 't1' and
+/// 't2' are equals.
+//: [(tableCheck)(tableCheck)|b]
+eqQuote = \t1, t2 ->
+  return t1[nick] == t2[nick] &
+    t1[date] == t2[date] &
+    t1[field] == t2[field]
+  ;;
+
+//: [(tableCheck)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[nick]),
+    js.ws(o[date]),
+    js.ws(o[field]),
+    js.ws(o[svId]),
+    js.wf(o[tbValue]),
+    js.wf(o[svValue]),
+    js.wb(o[deleted])
+  ]);;
+
+//: [s|(tableCheck)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[nick]),
+    js.rs(A[date]),
+    js.rs(A[field]),
+    js.rs(A[svId]),
+    js.rf(A[tbValue]),
+    js.rf(A[svValue]),
+    js.rb(A[deleted])
+  ];
+};

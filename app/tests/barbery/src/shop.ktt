@@ -1,0 +1,82 @@
+// Copyright 01-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+///
+IsPreopen = []/b/;
+///
+IsOpen = []/b/;
+
+Clients = []/s/;
+Sits = []/s/;
+
+//: [|]
+init = \ -> {
+  IsPreopen.push(true);
+  IsOpen.push(false);
+  Sits.cat(arr.new("", 4));
+};
+
+//: [|b]
+isFull = \ -> return arr.size(Clients) == 4;;
+
+//: [|b]
+isEmpty = \ -> return arr.size(Clients) == 0;;
+
+//: [|s]
+showSits = \ -> {
+  B = [""];
+  for (cl = Sits)
+    if (cl == "") arr.push(B, "-");
+    else arr.push(B, cl);
+  arr.push(B, "");
+  return arr.join(B, "|");
+};
+
+//: [|]
+open = \ -> {
+  IsOpen! = true;
+  IsPreopen! = false;
+};
+
+//: [|]
+close = \ -> IsOpen! = false;;
+
+//: [s|]
+takeASit = \cl -> {
+  nClients = arr.size(Clients);
+  if (nClients >= 4) throw "Barbery is full";
+
+  n = math.rndi(4 - nClients);
+  J = [0];
+  R = [-1];
+  for (i = 0:arr.size(Sits)) {
+    if (Sits[i] == "") {
+      if (J! == n) {
+        R! = i;
+        break;
+      }
+      J! += 1;
+    }
+  }
+  if (R! == -1) throw "Sit not found";
+
+  arr.push(Clients, cl);
+  Sits[R!] = cl;
+
+  sys.println(str.fmt("Shop: %v", [. showSits()]));
+};
+
+//: [|s]
+takeAClient = \ -> {
+  if (!Clients) throw "Barbery is empty";
+
+  cl = arr.shift(Clients);
+  for (i, c = Sits) {
+    if (c == cl) {
+      Sits[i] = "";
+      break;
+    }
+  }
+
+  return cl;
+};

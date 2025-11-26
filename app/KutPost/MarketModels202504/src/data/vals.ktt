@@ -1,0 +1,19 @@
+// Copyright 05-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Result group values.
+
+(vals) [. s[[i]]];
+
+/// Constructor.
+///   date: Date of group values.
+///   Vals: Values of several dates sorted from 'date' (after to before).
+/// \s,[[i.].] -> <vals>
+//: [. s[[i]]]
+new : date, Vals;
+
+//: [(vals)|s]
+toJs = \o -> return js.wa([
+    js.ws(o.date),
+    arr.toJs(o.Vals, \:arr ai -> return ai.toJs(js.wi);)
+  ]);;

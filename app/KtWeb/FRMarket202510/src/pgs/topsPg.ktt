@@ -1,0 +1,75 @@
+// Copyright 06-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary page.
+
+import "libdm/svrp";
+import "libdm/log";
+import "libmkt/model";
+import "data/topRs";
+import "data/top";
+import "data/irs";
+import "data/irsTable";
+import "db/resultsDb";
+import "db";
+import "cts";
+import "fns";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      Rs = []/(topRs)/;
+      :arr Models = fns.modelList();
+      MdIds = arr.map(Models, \:model m -> return m.id;);
+      Tops = db.readTops();
+      for (:top t = Tops) {
+        tMdId = t.mdId;
+        tParams = t.Params;
+        tAssets = t.assets;
+        mdIdOp = MdIds.find(\m -> return m == tMdId;);
+        if (!mdIdOp) {
+          log.error("Entry in 'tops.tb': Model " + tMdId + " not found");
+          continue;
+        }
+        mdId = mdIdOp!;
+        :irsTable tb = irsTable.fromJs(resultsDb.readLast(mdId));
+        rOp = arr.find(tb.Irss, \:irs r -> return r.Params == tParams;);
+        if (!mdIdOp) {
+          log.error(str.fmt(
+            "Entry in 'tops.tb': Investor %v%v not found",
+            [. tMdId, tParams]
+          ));
+          continue;
+        }
+        :irs r = rOp!;
+        assets = r.yearAssets();
+
+        cnV = [1];
+        for (:model md = Models) {
+          :irsTable tb = irsTable.fromJs(resultsDb.readLast(md.id));
+          for (:irs r = tb.Irss) if (r.yearAssets() > assets) cnV! += 1;
+        }
+        tnV = [1];
+        for (:top t = Tops) {
+          if (t.assets > tAssets) tnV! += 1;
+        }
+
+        Rs.push(topRs.new(
+          r.id(),
+          cnV!,
+          r.yearAssets(),
+          r.yearSales(),
+          tnV!,
+          tAssets
+        ));
+      }
+
+      return svrp.mk({
+        Invs: Rs.toJs(topRs.toJs)
+      });
+    }
+  }
+  throw "Value of rq (" + rq + ") is not valid";
+};

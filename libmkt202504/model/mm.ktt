@@ -1,0 +1,114 @@
+// Copyright 06-Apr-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Maximum - minimum.
+
+import "../model";
+import "doc/mmDoc";
+
+/// Returns a new 'appr' model.
+//: [|(model)]
+new = \ -> return model.new(
+    "MX_MN",
+    "Máximo - Mínimo",
+		mmDoc.text,
+		["Días", "Banda"],
+    [model.dayParam, model.percParam]
+  );;
+
+/// Returns a new [. isSold, reference, closes array] of one company,
+/// where:
+/// state -> is true if the company is not in stock.
+/// reference -> is the new company reference.
+/// closes -> Closes used for calculating references.
+///   Ref   : Reference data of previous calculus
+///           ([. state, reference, closes array]).
+///           'reference' is equals -1 when it is not fixed the initial one.
+///   cl    : Current close.
+///   Params: Model parameters.
+//: [[. bf[f]]f[f] | [. bf[f]]]
+ref = \Ref, cl, Params -> {
+  days = Params[0];
+  strip = Params[1];
+  stripUp = 1.0 + strip;
+  stripDown = 1.0 - strip;
+
+  isSold = Ref[0];
+  rf = Ref[1];
+  :arr Cls = Ref[2];
+  if (rf < 0.0) return [. false, cl * stripDown, [0.0, cl]];
+
+  cdays0 = Cls[0];
+  cdays = (cdays0 < days) ? cdays0 + 1.0 : cdays0;
+  oldC = Cls[1];
+  if (cdays >= days) Cls.shift();
+  Cls[0] = cdays;
+  Cls.push(cl);
+
+  if (isSold) {
+    if (cl > rf) {
+      return [. false, oldC * stripDown, Cls];
+    } else {
+      rf0 = oldC * stripUp;
+      rf2 = rf0 < rf ? rf0 : rf;
+      return [. true, rf2, Cls];
+    }
+  } else {
+    if (cl < rf) {
+      return [. true, oldC * stripUp, Cls];
+    } else {
+      rf0 = oldC * stripDown;
+      rf2 = rf0 > rf ? rf0 : rf;
+      return [. false, rf2, Cls];
+    }
+  }
+};
+
+//: [ [[f]][f] | [[f]] ]
+refs = \:arr Closes, :arr Params -> {
+  idays = math.ftoi(Params[0]);
+  strip = Params[1];
+  stripUp = 1.0 + strip;
+  stripDown = 1.0 - strip;
+  :arr Cls0 = Closes[0];
+  ndates = Closes.size();
+  ncos = Cls0.size();
+
+  IsSolds = arr.new(false, ncos);
+  :arr Refs = arr.map(Closes[0], \cl -> return cl * stripDown;);
+
+  Refs2 = Refs.copy();
+  AllRefs = arr.new(Refs2, ndates);
+  for (idate = 1:ndates) {
+    :arr ClosesR = Closes.get(idate);
+    :arr OldCloses = idate >= idays ? Closes.get(idate - idays) : Closes.get(0);
+
+    for (ico = 0:ncos) {
+      c = ClosesR.get(ico);
+      oldC = OldCloses.get(ico);
+      rf = Refs.get(ico);
+
+      if (IsSolds.get(ico)) {
+        if (c > rf) {
+          IsSolds.set(ico, false);
+          Refs.set(ico, oldC * stripDown);
+        } else {
+          rf0 = oldC * stripUp;
+          rf2 = rf0 < rf ? rf0 : rf;
+          Refs.set(ico, rf2);
+        }
+      } else {
+        if (c < rf) {
+          IsSolds.set(ico, true);
+          Refs.set(ico, oldC * stripUp);
+        } else {
+          rf0 = oldC * stripDown;
+          rf2 = rf0 > rf ? rf0 : rf;
+          Refs.set(ico, rf2);
+        }
+      }
+    }
+    AllRefs.set(idate, Refs.copy());
+  }
+  return AllRefs;
+};

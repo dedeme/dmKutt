@@ -1,0 +1,30 @@
+// Copyright 05-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Ranks of one period.
+
+import "rk";
+
+(rkRow) [. s[(rk)]];
+
+/// Constructor.
+///   period: One of 'cts.periods()' ("daily", "weekly", "monthly").
+///   Ranks : Unsorted array of ranks.
+//: [. s[(rk)]]
+new : period, Ranks;
+
+//: [(rkRow)|s]
+toJs = \o -> return js.wa([
+    js.ws(o.period),
+    arr.toJs(o.Ranks, rk.toJs)
+  ]);;
+
+//: [s|(rkRow)]
+fromJs = \j -> {
+  a = js.ra(j);
+  return [.
+      js.rs(a[period]),
+      arr.fromJs(a[Ranks], rk.fromJs)
+    ];
+};
+

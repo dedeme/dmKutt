@@ -1,0 +1,47 @@
+// Copyright 04-Nov-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Data of updaters for every system.
+
+import "cts";
+import "hupd";
+
+(hupds) [. [s](hupd)(hupd)(hupd)];
+
+/// Constructor.
+/// NOTE: The field 'Historic' of each system (hupd) has the same number of
+///       elements as 'Dates'.
+///   Dates  : Historic dates in format YYYYMMDD.
+///   b3   : Data of the Best 3 system
+///   b7   : Data of the Best 7 system.
+///   all  : Data of the All Models system.
+//: [. [s](hupd)(hupd)(hupd)]
+new : Dates, b3, b7, all;
+
+/// Empty constructor.
+/// Returns one entry for each system.
+///   dt: Initial date in format YYYYMMDD.
+//: [[s]|(hupds)]
+newDefault = \Dates -> return [.
+    Dates,
+    hupd.newDefault(), hupd.newDefault(), hupd.newDefault()
+  ];;
+
+//: [(hupds)|s]
+toJs = \o -> return js.wa([
+    arr.toJs(o[Dates], js.ws),
+    hupd.toJs(o[b3]),
+    hupd.toJs(o[b7]),
+    hupd.toJs(o[all])
+  ]);;
+
+//: [s|(hupds)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    arr.fromJs(A[0], js.rs),
+    hupd.fromJs(A[1]),
+    hupd.fromJs(A[2]),
+    hupd.fromJs(A[3])
+  ];
+};

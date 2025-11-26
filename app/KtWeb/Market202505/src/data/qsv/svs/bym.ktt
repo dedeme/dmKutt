@@ -1,0 +1,12 @@
+// Copyright 18-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Quotes server data BYM ("Bolsas y Mercados")[Usa puppeteer].
+
+import "../qsv";
+
+/// Constructor.
+//: [|(qsv)]
+new = \-> return qsv.new(
+  "BYM", "BYM", qsv.active, qsv.active, qsv.active
+);;

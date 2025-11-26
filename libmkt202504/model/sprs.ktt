@@ -1,0 +1,150 @@
+// Copyright 06-Apr-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Supports - Resitence model.
+
+import "../model";
+import "doc/sprsDoc";
+
+/// Returns a new 'sprs' model.
+//: [|(model)]
+new = \ -> return model.new(
+    "SPRS",
+    "Soporte - Resistencia",
+    sprsDoc.text,
+    ["Incremento"],
+    [model.percParam]
+  );;
+
+/// Returns a new [. isSold, reference, closes array] of one company,
+/// where:
+/// state -> is true if the company is not in stock.
+/// reference -> is the new company reference.
+/// closes -> Closes used for calculating references.
+///   Ref   : Reference data of previous calculus
+///           ([. isSold, reference, closes array]).
+///           'reference' is equals -1 when it is not fixed the initial one.
+///   cl    : Current close.
+///   Params: Model parameters.
+//: [[. bf[f]]f[f] | [. bf[f]]]
+ref = \Ref, cl, Params -> {
+  delta = Params[0];
+  upDelta = 1.0 + delta;
+  downDelta = 1.0 - delta;
+
+  isSold = Ref[0];
+  rf = Ref[1];
+  Cls = Ref[2];
+  if (rf < 0.0) return [. false, cl * downDelta, [cl, cl * downDelta, -1.0]];
+
+  max = Cls[0];
+  min = Cls[1];
+  tmp = Cls[2];
+
+  if (isSold) {
+    if (cl > max) {
+      return [. false, min, [cl, min, -1.0]];
+    } else {
+      NewCls = cl < min
+        ? tmp >= 0.0
+          ? [tmp, cl, -1.0]
+          : [max, cl, tmp]
+        : (tmp < 0.0 & cl > min * upDelta) | (tmp >= 0.0 & cl > tmp)
+          ? [max, min, cl]
+          : [max, min, tmp]
+      ;
+      return [. true, NewCls[0], NewCls];
+    }
+  } else {
+    if (cl < min) {
+      return [.true, max, [max, cl, -1.0]];
+    } else {
+      NewCls = cl > max
+        ? tmp >= 0.0
+          ? [cl, tmp, -1.0]
+          : [cl, min, tmp]
+        : (tmp < 0.0 & cl < max * downDelta) | cl < tmp
+          ? [max, min, cl]
+          : [max, min, tmp]
+      ;
+      return [. false, NewCls[1], NewCls];
+    }
+  }
+};
+
+//: [ [[f]][f] | [[f]] ]
+refs = \:arr Closes, :arr Params -> {
+  delta = Params[0];
+  upDelta = 1.0 + delta;
+  downDelta = 1.0 - delta;
+  :arr Cls0 = Closes[0];
+  ndates = Closes.size();
+  ncos = Cls0.size();
+
+  Maxs = arr.new(0.0, ncos);
+  :arr Mins = arr.new(0.0, ncos);
+  Tmps = arr.new(-1.0, ncos);
+  IsSolds = arr.new(false, ncos);
+  for (i, c = Cls0) {
+    c2 = c * downDelta;
+    Maxs.set(i, c);
+    Mins.set(i, c2);
+  }
+
+  Mins2 = Mins.copy();
+  AllRefs = arr.new(Mins2, ndates);
+  for (idate = 1:ndates) {
+    ClosesR = Closes.get(idate);
+    Refs = arr.new(0.0, ncos);
+
+    for (ico = 0:ncos) {
+      c = ClosesR.get(ico);
+
+      if (IsSolds.get(ico)) {
+        if (c > Maxs.get(ico)) {
+          IsSolds.set(ico, false);
+          Maxs.set(ico, c);
+          Tmps.set(ico, -1.0);
+          Refs.set(ico, Mins.get(ico));
+        } else {
+          if (c < Mins.get(ico)) {
+            Mins.set(ico, c);
+            if (Tmps.get(ico) >= 0.0) {
+              Maxs.set(ico, Tmps.get(ico));
+              Tmps.set(ico, -1.0);
+            }
+          } else if (
+            (Tmps.get(ico) < 0.0 & c > Mins.get(ico) * upDelta) |
+            (Tmps.get(ico) >= 0.0 & c > Tmps.get(ico))
+          ) {
+            Tmps.set(ico, c);
+          }
+          Refs.set(ico, Maxs.get(ico));
+        }
+      } else {
+        if (c < Mins.get(ico)) {
+          IsSolds.set(ico, true);
+          Mins.set(ico, c);
+          Tmps.set(ico, -1.0);
+          Refs.set(ico, Maxs.get(ico));
+        } else {
+          if (c > Maxs.get(ico)) {
+            Maxs.set(ico, c);
+            if (Tmps.get(ico) >= 0.0) {
+              Mins.set(ico, Tmps.get(ico));
+              Tmps.set(ico, -1.0);
+            }
+          } else if (
+            (Tmps.get(ico) < 0.0 & c < Maxs.get(ico) * downDelta) |
+            c < Tmps.get(ico)
+          ) {
+            Tmps.set(ico, c);
+          }
+          Refs.set(ico, Mins.get(ico));
+        }
+      }
+    }
+    AllRefs.set(idate, Refs);
+  }
+  return AllRefs;
+};

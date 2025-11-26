@@ -1,0 +1,161 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Accounting operatiom data.
+
+/// Operation type
+(opr) [. sifs];
+
+/// Sell operation type
+seT = "se";
+/// Buy operation type
+buT = "bu";
+/// Stock operation type
+stT = "st";
+/// Open fixed income in primary market operation type
+ofxT = "ofx";
+/// Open fixed income in secundary market operation type
+osfxT = "osfx";
+/// Close fixed income operation type
+cfxT = "cfx";
+/// Fixed income stock operation type
+stfxT = "stfx";
+/// Income operation type
+inT = "in";
+/// Withdrawal operation type
+wiT = "wi";
+/// Profits operation type
+prT = "pr";
+/// Fixed income profits operation type
+prfxT = "prfx";
+/// Fees operation type
+feT = "fe";
+/// Positive differences operation type
+pdT = "pd";
+/// Negative differences operation type
+ndT = "nd";
+
+// Constructor. Use 'mkXX' contructors.
+//   tp: Operation type.
+//   i : Integer value.
+//   f : Float value.
+//   s : String value.
+_
+//: [. sifs]
+new0 : tp, i, f, s;
+
+/// Makes a sell operation
+//: [sif|(opr)]
+newSe = \nick, stocks, price -> return new0(seT, stocks, price, nick);;
+
+/// Makes a buy operation
+//: [sif|(opr)]
+newBu = \nick, stocks, price -> return new0(buT, stocks, price, nick);;
+
+/// Makes a stock operation
+//: [sif|(opr)]
+newSt = \nick, stocks, price -> return new0(stT, stocks, price, nick);;
+
+/// Makes a open fixed income operation in primary market
+//: [sif|(opr)]
+newOfx = \id, nominal, price -> return new0(ofxT, nominal, price, id);;
+
+/// Makes a open fixed income operation in secundary market
+//: [sif|(opr)]
+newOsfx = \id, nominal, price -> return new0(osfxT, nominal, price, id);;
+
+/// Makes a close fixed income operation
+//: [sif|(opr)]
+newCfx = \id, nominal, price -> return new0(cfxT, nominal, price, id);;
+
+/// Makes a fixed income stock operation
+//: [si|(opr)]
+newStfx = \id, nominal -> return new0(stfxT, nominal, 0.0, id);;
+
+/// Makes an income operation
+//: [f|(opr)]
+newIn = \amount -> return new0(inT, 0, amount, "");;
+
+/// Makes a withdrawal operation
+//: [f|(opr)]
+newWi = \amount -> return new0(wiT, 0, amount, "");;
+
+/// Makes a profits operation
+//: [fs|(opr)]
+newPr = \amount, cause -> return new0(prT, 0, amount, cause);;
+
+/// Makes a fixed income profits operation
+//: [fs|(opr)]
+newPrfx = \amount, cause -> return new0(prfxT, 0, amount, cause);;
+
+/// Makes a fees operation
+//: [fs|(opr)]
+newFe = \amount, cause -> return new0(feT, 0, amount, cause);;
+
+/// Makes a 'positive differences' operation
+//: [fs|(opr)]
+newPd = \amount, cause -> return new0(pdT, 0, amount, cause);;
+
+//: [fs|(opr)]
+newNd = \amount, cause -> return new0(ndT, 0, amount, cause);;
+
+/// Returns operation type. Can be seT, buT, stT, ofxT, cfxT, stfxT, inT,
+/// wiT, prT, feT, pdT or ndT.
+//: [(opr)|s]
+type = \op -> return op[tp];;
+
+/// Returns nick if type of 'op' is se, bu or st.
+//: [(opr)|s]
+nick = \op -> return op[s];;
+
+/// Returns stocks if type of 'op' is se, bu or st.
+//: [(opr)|i]
+stocks = \op -> return op[i];;
+
+/// Returns price if type of 'op' is se, bu, st, ofx, cfx or stfx.
+//: [(opr)|f]
+price = \op -> return op[f];;
+
+/// Returns identifier if type of 'op' is ofx, cfx or stfx.
+//: [(opr)|s]
+id = \op -> return op[s];;
+
+/// Returns number of titles if type of 'op' is ofx, cfx or stfx.
+//: [(opr)|i]
+nominal = \op -> return op[i];;
+
+/// Returns amount if type of 'op' is in, wi, pr, fe, pd or md.
+//: [(opr)|f]
+amount = \op -> return op[f];;
+
+/// Returns cause if type of 'op' is pr, fe, pd or md.
+//: [(opr)|s]
+cause = \op -> return op[s];;
+
+/// Returns a representation of 'op'
+//: [(opr)|s]
+toStr = \op -> return toJs(op);;
+
+//: [(opr)|s]
+toJs = \o -> return js.wa(
+  switch(o[tp]) {
+    seT, buT, stT,
+    ofxT, osfxT, cfxT, stfxT: [js.ws(o[tp]), js.ws(o[s]), js.wi(o[i]), js.wf(o[f])];
+    prT, prfxT, feT, pdT, ndT: [js.ws(o[tp]), js.wf(o[f]), js.ws(o[s])];
+    inT, wiT: [js.ws(o[tp]), js.wf(o[f])];
+    default: throw([]/[s]/, "Unknown operation of type " + o[tp]);
+  });;
+
+//: [s|(opr)]
+fromJs = \j -> {
+  A = js.ra(j);
+  tp = js.rs(A[0]);
+  return switch(tp) {
+    seT, buT, stT,
+    ofxT, osfxT, cfxT, stfxT: new0(tp, js.ri(A[2]), js.rf(A[3]), js.rs(A[1]));
+    prT, prfxT, feT, pdT, ndT: new0(tp, 0, js.rf(A[1]), js.rs(A[2]));
+    inT, wiT: new0(tp, 0, js.rf(A[1]), "");
+    default: throw([]/(opr)/, "Unknown operation of type " + tp);
+  };
+};
+

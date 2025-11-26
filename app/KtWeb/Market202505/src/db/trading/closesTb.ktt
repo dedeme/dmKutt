@@ -1,0 +1,52 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Closes table of selected companies and indices.
+
+import "../tradingDb";
+import "cts";
+
+_
+//: [|s]
+fpath = \ -> return file.cat(tradingDb.dpath(), ["closes.tb"]);;
+
+/// Initializes table.
+//: [|]
+init = \ -> if (!file.exists(fpath())) write({});;
+
+/// Reads table. Closes table is a dictionary:
+///   For companies and 'cts.meNick' -> {nick->[isFromHistoric, [close]]}
+///   For indexes -> {nick->[isFromHistoric, [currentValue, yesterdayValue]]}
+//: [|{[. b[f]]}]
+read = \ -> return dic.fromJs(
+    file.read(fpath()),
+    \ej -> {
+      A = js.ra(ej);
+      return [.
+        js.rb(A[0]),
+        arr.fromJs(A[1], js.rf)
+      ];
+    }
+  );;
+
+/// For companies and 'cts.meNick' reads table with only closes. {nick: close}
+/// For indexes reads table with only currentValue. {nick: currentValue}
+//: [|{f}]
+readOnlyCloses = \ -> {
+  R = {}/f/;
+  for (k, V = read()) R.put(k, V[1][0]);
+  return R;
+};
+
+/// Writes table.
+///   Closes: Dictionary:
+///     For companies and 'cts.meNick' -> {nick->[isFromHistoric, [close]]}
+///     For indexes -> {nick->[isFromHistoric, [currentValue, yesterdayValue]]}
+//: [{[. b[f]]}|]
+write = \Closes -> file.write(
+    fpath(),
+    dic.toJs(Closes, \E -> return js.wa([
+        js.wb(E[0]),
+        arr.toJs(E[1], js.wf)
+      ]);)
+  );;

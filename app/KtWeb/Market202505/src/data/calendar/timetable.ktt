@@ -1,0 +1,34 @@
+// Copyright 10-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Time table data.
+
+/// Timetable type.
+(timetable) [. iiii];
+
+/// Constructor.
+///   hopen : Open hour.
+///   mopen : Open minute.
+///   hclose: Close hour.
+///   mclose: Close minute.
+//: [. iiii]
+new : hopen, mopen, hclose, mclose;
+
+//: [(timetable)|s]
+toJs = \o -> return js.wa([
+    js.wi(o[hopen]),
+    js.wi(o[mopen]),
+    js.wi(o[hclose]),
+    js.wi(o[mclose])
+  ]);;
+
+//: [s|(timetable)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.ri(A[hopen]),
+    js.ri(A[mopen]),
+    js.ri(A[hclose]),
+    js.ri(A[mclose])
+  ];
+};

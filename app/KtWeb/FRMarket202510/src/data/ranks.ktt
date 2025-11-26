@@ -1,0 +1,23 @@
+// Copyright 11-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// <ranks> data definition.
+
+import "rankE";
+
+/// Rankings type.
+(ranks) [. [(rankE)][(rankE)][(rankE)]];
+
+/// Constructor.
+///   daily  : Daily ranking.
+///   weekly : Weekly ranking.
+///   monthly: Monthly ranking.
+//: [. [(rankE)][(rankE)][(rankE)]]
+new : Daily, Weekly, Monthly;
+
+//: [(ranks)|s]
+toJs = \o -> return js.wa([
+    arr.toJs(o.Daily, rankE.toJs),
+    arr.toJs(o.Weekly, rankE.toJs),
+    arr.toJs(o.Monthly, rankE.toJs)
+  ]);;

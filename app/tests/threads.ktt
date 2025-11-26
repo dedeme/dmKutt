@@ -1,0 +1,62 @@
+
+//: [|]
+th3 = \-> {
+  sys.println("in th3");
+  th = thread.start(\-> {
+    sys.println("previous to exec");
+    rs = sys.exec("kutt", ["threads", "delay"]);
+    sys.println("after exec");
+    sys.test(rs, 0);
+  });
+  sys.sleep(50);
+  sys.println("previous to join");
+  th.join();
+};
+
+//: [|s]
+th2 = \-> {
+  return sys.cmd("kutt", ["threads", "request"])!!;
+};
+
+//: [|]
+th1 = \-> {
+  thread.run(\-> {
+    sys.test(th2(), "in th3\nprevious to exec\nprevious to join\nafter exec\n");
+  });
+};
+
+
+{
+  Args = sys.args();
+
+  if (arr.size(Args) > 0) {
+    if (Args[0] == "delay") {
+      sys.sleep(6000);
+      file.write("tmp.txt", "End delay");
+      return;
+    }
+    if (Args[0] == "request") {
+      th3();
+      return;
+    }
+    if (Args[0] == "r2") {
+      sys.println(str.fmt("here %v", [. 1]));
+      sys.sleep(1000);
+      trace "here2";
+      return;
+    }
+  }
+
+  sys.println (
+    "You can use\n  'threads', threads delay', 'threads request' and 'treads r2'"
+  );
+  sys.println("Waiting 10 seconds...");
+
+  thread.run(th1);
+  sys.sleep(10000);
+
+  if (file.exists("tmp.txt")) {
+    sys.test(file.read("tmp.txt"), "End delay");
+    file.del("tmp.txt");
+  }
+}

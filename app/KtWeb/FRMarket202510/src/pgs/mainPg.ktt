@@ -1,0 +1,24 @@
+// Copyright 06-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary page.
+
+import "libdm/svrp";
+import "libmkt/cts" : mkCts;
+import "cts";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      return svrp.mk({
+        datesInPeriod: js.wi(cts.datesInPeriod),
+        evalSteps: js.wi(cts.evalSteps),
+        initialCapital: js.wf(mkCts.initialCapital),
+        ydays: js.wi(cts.ydays)
+      });
+    }
+  }
+  throw "Value of rq (" + rq + ") is not valid";
+};

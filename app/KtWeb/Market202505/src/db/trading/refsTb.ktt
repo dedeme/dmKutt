@@ -1,0 +1,30 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// References table of selected companies.
+
+import "../tradingDb";
+import "cts";
+
+_
+//: [|s]
+fpath = \ -> return file.cat(tradingDb.dpath(), ["refs.tb"]);;
+
+/// Initializes table.
+//: [|]
+init = \ -> if (!file.exists(fpath())) write({});;
+
+/// Reads table. Returns a dictionary {nick:[prevRef, currentRef]}.
+//: [|{[f]}]
+read = \ -> return dic.fromJs(
+    file.read(fpath()),
+    \ej -> return arr.fromJs(ej, js.rf);
+  );;
+
+/// Writes table.
+///   Refs: Dictionary {nick:[prevRef, currentRef]}.
+//: [{[f]}|]
+write = \Refs -> file.write(
+    fpath(),
+    dic.toJs(Refs, \:arr E -> return E.toJs(js.wf);)
+  );;

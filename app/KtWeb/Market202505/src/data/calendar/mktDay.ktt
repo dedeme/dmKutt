@@ -1,0 +1,44 @@
+// Copyright 10-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Market day data.
+
+import "timetable";
+
+/// Market day type
+(mktDay) [. siiii];
+
+/// Constructor.
+///   date  : Day.
+///   hopen : Open hour.
+///   mopen : Open minute.
+///   hclose: Close hour.
+///   mclose: Close minute.
+//: [. siiii]
+new : date, hopen, mopen, hclose, mclose;
+
+//: [(mktDay)|(timetable)]
+toTimetable = \m -> return timetable.new(
+    m[hopen], m[mopen], m[hclose], m[mclose]
+  );;
+
+//: [(mktDay)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[date]),
+    js.wi(o[hopen]),
+    js.wi(o[mopen]),
+    js.wi(o[hclose]),
+    js.wi(o[mclose])
+  ]);;
+
+//: [s|(mktDay)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[date]),
+    js.ri(A[hopen]),
+    js.ri(A[mopen]),
+    js.ri(A[hclose]),
+    js.ri(A[mclose])
+  ];
+};

@@ -1,0 +1,51 @@
+// Copyright 06-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary page.
+
+import "libdm/svrp";
+import "libmkt/model";
+import "data/irs";
+import "data/irsTable";
+import "db/resultsDb";
+import "db";
+import "cts";
+import "fns";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      Rs = {}/[[. [f]fi]]/;
+      :arr Models = fns.modelList();
+      MdIds = arr.map(Models, \:model m -> return m.id;);
+      for (:model mdId = MdIds) {
+        :irsTable tb = irsTable.fromJs(resultsDb.readLast(mdId));
+        Irss = tb.Irss;
+        R0s = []/[. [f]fi]/;
+        for (i = tb.Ixs) {
+          :irs r = Irss[i];
+          sales = r.yearSales();
+          if (sales >= cts.minSales)
+            R0s.push([. r.Params, r.yearAssets(), sales]);
+        }
+        Rs.put(mdId, R0s);
+      }
+      Results = Rs.toJs(\Es -> {
+        return arr.toJs(Es, \E -> return js.wa([
+          arr.toJs(E[0], js.wf),
+          js.wf(E[1]),
+          js.wi(E[2])
+        ]););
+      });
+      bestModel = js.ws(resultsDb.readBest(MdIds)[irs.mdId]);
+      return svrp.mk({
+        Models : Models.toJs(fns.modelNoDocToJs),
+        Results,
+        bestModel
+      });
+    }
+  }
+  throw "Value of rq (" + rq + ") is not valid";
+};

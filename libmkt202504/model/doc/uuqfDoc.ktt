@@ -1,0 +1,59 @@
+// Copyright 06-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// 'uuqf' documentation.
+
+text = """
+  <pre>
+  ** Start ***
+
+  δ = Param[0]
+  δ+ = 1 + ð
+  δ- = 1 - ð
+  γ = Param[0] * Param[1]
+  γ+ = 1 + γ
+
+  U (UUDD0 reference) = c * δ-
+  Q (QFIX reference) = c / γ+
+  Qt (QFIX change top) = c * (1 + γ+) / 2
+  Ref = Q;
+  isSold = 0
+
+  ** Process ***
+
+  c = Last close
+  prvC = Previous close
+
+  isSold
+    ? df = c - prvC
+      U0 = U * (prvC + df) / prvC
+      U2 = U < U0 ? U : U0
+      c > U2 | c > Q
+        ? isSold = false
+          U = c * δ-
+          Q = c / γ+
+          Qt = c * (1 + γ+) / 2
+          Ref = Q
+        : U = U2
+          while c < Qt
+            Q = Q / γ+
+            r = Q / γ+
+            Qt = (r + r / γ+) / 2
+          Ref = U < Q ? U : Q
+    : df = c - prvC
+      U0 = U * (prvC + df) / prvC
+      U2 = U > U0 ? U : U0
+      c < U2 | c < Q
+        ? isSold = true
+          U = c * δ+
+          Q = c * γ+
+          Qt = (c + c / γ+) / 2
+          Ref = Q
+        : U = U2
+          while c > Qt
+            Q = Q * γ+
+            r = Q * γ+
+            Qt = (r  + r * γ+) / 2
+          Ref = U > Q ? U : Q
+  </pre>
+""";

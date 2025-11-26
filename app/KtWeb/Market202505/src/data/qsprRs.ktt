@@ -1,0 +1,14 @@
+// Copyright 22-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// 'Quotes process result' data definition.
+
+/// 'Quotes process result' type.
+(qsprRs|A) [. [A]bb];
+
+/// Constructor.
+///   valueOp     : Array with an object or empty if the result is with error.
+///   withWarnings: 'true' if there are warnings.
+///   withError   : 'true' if there are errors.
+//: [. [A]bb]
+new : valueOp, withWarnings, withError;

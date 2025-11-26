@@ -1,0 +1,52 @@
+// Copyright 22-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Calendar page.
+
+import "libdm/svrp";
+import "db/calendarTb";
+import "data/calendar/calendar";
+import "data/calendar/timetable";
+import "data/calendar/mktDay";
+import "db";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      return svrp.mk({
+        dbKey: js.ws(db.readKey()),
+        cal: calendar.toJs(calendarTb.read())
+      });
+    }
+    "setGeneral": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      :calendar cal = calendarTb.read();
+      tt = timetable.fromJs(Rq\tt);
+      calendarTb.write(calendar.new(tt, cal.Holidays, cal.SpecialDays));
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    "setHolidays": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      :calendar cal = calendarTb.read();
+      Holidays = arr.fromJs(Rq\Holidays, js.rs);
+      calendarTb.write(calendar.new(cal.general, Holidays, cal.SpecialDays));
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    "setSpecialDays": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      :calendar cal = calendarTb.read();
+      SpecialDays = arr.fromJs(Rq\SpecialDays, mktDay.fromJs);
+      calendarTb.write(calendar.new(cal.general, cal.Holidays, SpecialDays));
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

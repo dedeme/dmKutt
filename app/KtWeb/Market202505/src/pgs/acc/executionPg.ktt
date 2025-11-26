@@ -1,0 +1,92 @@
+// Copyright 23-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Profits in excution page.
+
+import "libdm/svrp";
+import "libmkt/quote";
+import "db/acc/diariesDb";
+import "db/quotesDb";
+import "data/acc/opr";
+import "data/acc/anns";
+import "data/acc/ann";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      Anns = []/(ann)/;
+      for (y = diariesDb.investorYears()[:2]) {
+        Anns.cat(arr.filter(
+          diariesDb.read(y)[anns.Anns],
+          \:ann a -> {
+            type = opr.type(a.op);
+            return type == opr.buT | type == opr.seT;
+          }
+        ));
+      }
+      Anns.sort(\:ann a1, :ann a2 -> return a1.date > a2.date;);
+      Anns2 = Anns[:100];
+
+      :arr Cos = arr.duplicates(
+        arr.map(Anns2, \:ann a -> return opr.nick(a.op);),
+        \c1, c2 -> return c1 == c2;
+      )[0];
+
+      Qts = {}/[(quote)]/;
+      Errors = []/s/;
+      :arr Nicks = quotesDb.nicks();
+      for (c = Cos) {
+        if (!Nicks.find(\n -> return n == c;)) {
+          Errors.push(str.fmt(
+            "Company in annotation %v not found in 'quotes'.db", [. c]
+          ));
+        } else {
+          Qs, err = quotesDb.readQs(c);
+          if (err == "") Qts.put(c, Qs);
+          else Errors.push(err);
+        }
+      }
+
+      // [.nick, date, TeoricResult, RealResult]
+      Operations = []/[. ssff]/;
+
+      for (:ann a = Anns2) {
+        date = a.date;
+        :opr o = a.op;
+        nick = o.nick();
+        QsOp = Qts.get(nick);
+        if (!QsOp) {
+          Errors.push(str.fmt(
+            "Nick of annotation %v not found", [. a.toJs()]
+          ));
+        } else {
+          qOp = arr.find(QsOp!, \:quote q -> return q.date == date;);
+          if (!qOp) {
+            Errors.push(str.fmt(
+              "Open value for annotation %v not found", [. a.toJs()]
+            ));
+          } else {
+            :quote q = qOp!;
+            stocks = math.itof(o.type() == opr.seT ? o.stocks() : -o.stocks());
+            tr = stocks * q.open;
+            rr = stocks * o.price();
+            Operations.push([. nick, date, tr, rr]);
+          }
+        }
+      }
+
+      return svrp.mk({
+        Operations: Operations.toJs(\E -> return js.wa([
+            js.ws(E[0]),
+            js.ws(E[1]),
+            js.wf(E[2]),
+            js.wf(E[3])
+          ]);),
+        Errors: Errors.toJs(js.ws)
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

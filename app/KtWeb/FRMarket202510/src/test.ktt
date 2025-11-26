@@ -1,0 +1,287 @@
+// Copyright 02-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Program tests.
+
+import "libmkt/quotes";
+import "libmkt/models";
+import "libmkt/model";
+import "libmkt/broker";
+import "libmkt/order";
+import "libmkt/strategy";
+import "libmkt/stRs";
+import "libmkt/cts" : mkCts;
+import "extDb/cosTb";
+import "extDb/quotesDb";
+import "data/idata";
+import "data/irs";
+import "data/coData";
+import "cts";
+
+/// Execute tests.
+//: [|]
+run = \ -> {
+  //allRefs();
+  //for(i = 0:100) allRefs();
+  //refs("MM", [31.0, 0.015], arr.index(cosTb.read(), \c -> return c == "SAB";));
+  for(i = 0:100) allStrategies();
+  //strat("APRX3", [0.23, 0.075]);
+  //trace : cosTb.read()[10];
+  //sys.println("No test done");
+};
+
+_
+//: [|]
+allRefs = \ -> {
+  for (:model md = models.list()) {
+    mdId = md.id;
+    Params = []/f/;
+    Incs = cts.paramBaseIncs()[mdId];
+    for (i, p = cts.paramBases()[mdId])
+      Params.push(p + math.itof(math.rndi(cts.evalSteps)) * Incs[i]);
+    coIx = math.rndi(arr.size(cosTb.read()));
+    refs(mdId, Params, coIx);
+  }
+};
+
+_
+//: [s[f]i|]
+refs = \mdId, Params, coIx -> {
+  :model md = models.get(mdId)!;
+  :arr Cos = cosTb.read()[coIx:coIx+1];
+  :quotes qts = quotesDb.read(Cos);
+// trace : cosTb.read()[25];
+  // Refs Market
+  :arr Refs1 = md.refs(qts.Closes, Params);
+
+  // Refs FRMarket
+  Refs2 = []/f/;
+  Rf = [. false, -1.0, []/f/];
+  for (Cls = qts.Closes) {
+    isSold, rf, Closes = md.ref(Rf, Cls[0], Params);
+    Refs2.push(rf);
+    Rf[0] = isSold;
+    Rf[1] = rf;
+    Rf[2] = Closes;
+  }
+
+  sys.test(Refs1.size(), Refs2.size());
+  for (i = 0:Refs1.size()) {
+// sys.println([. qts.Dates[i], Refs1[i]!, Refs2[i]]);
+    sys.test([. i, Refs1[i]!], [. i, Refs2[i]]);
+  }
+
+  sys.println(str.fmt(
+    "(%v%v:%v) References test ok.",
+    [. mdId, Params, cosTb.read()[coIx]])
+  );
+};
+
+//: [|]
+allStrategies = \ -> {
+  for (:model md = models.list()) {
+    mdId = md.id;
+// if (mdId == "SS_BB") continue;
+    Params = []/f/;
+    Incs = cts.paramBaseIncs()[mdId];
+    for (i, p = cts.paramBases()[mdId])
+      Params.push(p + math.itof(math.rndi(cts.evalSteps)) * Incs[i]);
+    strat(mdId, Params);
+  }
+
+};
+
+_
+//: [s[f]|]
+strat = \mdId, Params -> {
+// trace : [. mdId, Params];
+  resultsTb = [. []/s/, []/(order)/, 0.0]; // [. [dates](0), [Order](1), Assets(2)]
+
+  // Auxiliar functions --------------------------------------------------------
+
+  // See updater.getQuotes.
+  //: [[s](quotes)[s]|[. s{f}{f}]]
+  getQuotes = \:arr Cos, :quotes qts, :arr CoDates -> {
+    :arr OldDates = resultsTb[0];
+
+    todayIxV = [0];
+    if (!!OldDates) {
+      lastDate = OldDates.peek();
+      todayIxV! = -1;
+      for (i = CoDates.size() - 1:0:-1) {
+        if (CoDates[i] > lastDate) todayIxV! = i;
+        else break;
+      }
+    }
+    todayIx = todayIxV!;
+    if (todayIx == -1) return [. "", {}/f/, {}/f/];
+    QOpens = qts.Opens[todayIx];
+    QCloses = qts.Closes[todayIx];
+    Opens = {}/f/;
+    Closes = {}/f/;
+    for (i, nick = Cos) {
+      Opens.put(nick, QOpens[i]);
+      Closes.put(nick, QCloses[i]);
+    }
+
+    return [. CoDates[todayIx], Opens, Closes];
+  };
+
+  // Returns results of a model.
+  //: [(model)s{f}{f}(idata)|]
+  mkResults = \md, today, :dic Opens, Closes, :idata inv -> {
+
+    //inv.execute(today, Opens, []); // Modified below
+    { // ---------------------------------------------------
+      // Auxiliary function.
+      //: [s|]
+      sale = \nick -> {
+        inv.sales += 1;
+        stocks, price = inv.Portfolio[nick];
+        op = Opens[nick];
+        inv.cash += broker.sell(stocks, op);
+        dic.remove(inv.Portfolio, nick);
+        dic.put(inv.Jail, nick,
+          op < price * mkCts.noLossMultiplicator
+            ? cts.daysLoss5
+            : "0"
+        );
+
+        arr.push(
+          resultsTb[1], order.new(today, nick, mkCts.orderSell, stocks, op)
+        );
+      };
+
+      // Auxiliary function.
+      //: [(idata)|f]
+      investingCash = \:idata i -> return i.cash - i.withdrawals;;
+
+      inv.days += 1;
+      Os = inv.Orders;
+
+      // Remove outdated in jail
+      for (nick, days = inv.Jail)
+        inv.Jail[nick] = math.itos(math.stoi(days)! - 1);
+      for (nick = dic.keys(inv.Jail)) if (math.stoi(inv.Jail[nick])! < 1)
+        dic.remove(inv.Jail, nick);
+
+      // buys
+      :arr InJail = dic.keys(inv.Jail);
+      cashV = [investingCash(inv)];
+      toSellNV = [0];
+      for (nk, v = Os) if (dic.hasKey(inv.Portfolio, nk))
+        toSellNV! += 1;
+      maxBuysV = [mkCts.maxCos - dic.size(inv.Portfolio) + toSellNV!];
+      for (nick, isSale = Os) if (!isSale) {
+//if (nick == "ELE") {
+//  trace [. today, cashV!, maxBuysV!, toSellNV!];
+//  trace : [. arr.toJs(dic.keys(inv.Portfolio), js.ws)];
+//}
+        if (cashV! <= mkCts.minToBet | maxBuysV! <= 0)
+          break;
+        if (InJail.any(\nk -> return nk == nick;)) continue;
+
+        op = Opens[nick];
+        stocks = math.ftoi(mkCts.bet / op);
+        cost = broker.buy(stocks, op);
+        dic.put(inv.Portfolio, nick, [. stocks, op]);
+        cashV! -= cost;
+        inv.cash -= cost;
+        maxBuysV! -= 1;
+
+        arr.push(resultsTb[1], order.new(today, nick, mkCts.orderBuy, stocks, op));
+      }
+
+      // sales
+      for (nick, isSale = Os) if (isSale & dic.hasKey(inv.Portfolio, nick))
+        sale(nick);
+
+      // Remove orders
+      for (nick = dic.keys(Os)) dic.remove(Os, nick);
+
+    } // ---------------------------------------------------
+
+    assets = inv.assets(Closes);
+
+    resultsTb[2] = assets;
+
+    investingAssets = assets - inv.withdrawals;
+    if (
+      investingAssets > mkCts.withdrawalLimit &
+      inv.investingCash() > mkCts.minToBet
+    ) {
+      inv.withdrawals += mkCts.bet;
+    }
+
+    NewCoData = {}/(coData)/;
+    for (nk, cl = Closes) {
+      coDtOp = dic.get(inv.CoData, nk);
+      :coData coDt = !coDtOp ? coData.new0() : coDtOp!;
+      :coData newCoDt = model.ref(md, coDt, cl, inv.Params);
+//if (nk == "SAB")
+//sys.println([. "******", today, coDt.toJs(), " --- ", newCoDt.toJs()]);
+      if (coDt.isSold != newCoDt.isSold)
+        dic.put(inv.Orders, nk, newCoDt.isSold);
+
+      NewCoData.put(nk, newCoDt);
+    }
+    inv.CoData = NewCoData;
+
+    arr.push(resultsTb[0], today);
+  };
+
+  // Main code -----------------------------------------------------------------
+
+  :model md = models.get(mdId)!;
+  :arr Cos = cosTb.read();
+  :quotes qts = quotesDb.read(Cos);
+
+
+  // Market data
+  :arr Refs = md.refs(qts.Closes, Params);
+  :stRs rs = strategy.open(md, qts, Refs);
+
+  // FRMarket data
+  :arr CoDates = qts.Dates;
+  :idata inv = idata.new0(Params);
+
+  while () {
+    // Make table of investor assets
+
+    date, Opens, Closes = getQuotes(Cos, qts, CoDates);
+    if (date == "") break;
+
+    mkResults(md, date, Opens, Closes, inv);
+  }
+
+  arr.sort(rs.Orders, \:order o1, :order o2 ->
+    return o1.date == o2.date
+      ? o1.type == o2.type
+        ? o1.nick < o2.nick
+        : o1.type < o2.type
+      : o1.date < o2.date
+    ;
+  );
+  arr.sort(resultsTb[1], \:order o1, :order o2 ->
+    return o1.date == o2.date
+      ? o1.type == o2.type
+        ? o1.nick < o2.nick
+        : o1.type < o2.type
+      : o1.date < o2.date
+    ;
+  );
+//  sys.test(arr.size(rs.Orders), arr.size(resultsTb[1]));
+  for (i, :order o2 = resultsTb[1]) {
+    :order o1 = rs.Orders[i];
+if (o1.toJs() != o2.toJs()) {
+  sys.println("***");
+  for (:order o = rs.Orders) sys.println(o.toJs());
+  sys.println("---");
+  for (:order o = resultsTb[1]) sys.println(o.toJs());
+}
+    sys.test([. i, o1.toJs()], [. i, o2.toJs()]);
+  }
+
+  sys.test(arr.peek(rs.Hreals), resultsTb[2]);
+  sys.println(str.fmt("(%v%v) Strategy test ok.", [. mdId, Params]));
+};

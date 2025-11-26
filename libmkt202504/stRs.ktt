@@ -1,0 +1,61 @@
+// Copyright 07-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Data returned by 'strategy.open'
+
+import "order";
+
+(stRs) [. [(order)] [f][f][f][f] f[[s]][[s]][f] ];
+
+/// Constructor:
+/// NOTE: Orders, Hassets, Hwithdrawals and cash come from global
+///       simulation. Buys, Sales and Profits come from single simualation.
+///   Orders: Every market order ordered by date.
+///   Hreals: Real assets historic (calculated with closes).
+///           One value for each date.
+///   Haccs: Accounting assets historic (calculated with buy prices).
+///           One value for each date.
+///   Hrefs: Reference assets historic (calculated with references).
+///           One value for each date.
+///   Hwithdrawals: Withdrawals historic. One value for each date.
+///   cash: Final cash + withdrawals.
+///   Buys: Buy dates. One array for each company (from before to after).
+///   Sales: Sales dates. One array for each company (from before to after).
+///   Profits: Profits ratios. One for each company.
+//: [. [(order)] [f][f][f][f] f[[s]][[s]][f] ]
+new : Orders,
+      Hreals, Haccs, Hrefs, Hwithdrawals,
+      cash, Buys, Sales, Profits;
+
+//: [(stRs)|s]
+toJs = \o -> return js.wa([
+    arr.toJs(o[Orders], order.toJs),
+
+    arr.toJs(o[Hreals], \n -> return js.wf2(n, 2);),
+    arr.toJs(o[Haccs], \n -> return js.wf2(n, 2);),
+    arr.toJs(o[Hrefs], \n -> return js.wf2(n, 2);),
+    arr.toJs(o[Hwithdrawals], \n -> return js.wf2(n, 2);),
+
+    js.wf2(o[cash], 2),
+    arr.toJs(o[Buys], \Bs -> return arr.toJs(Bs, js.ws);),
+    arr.toJs(o[Sales], \Ss -> return arr.toJs(Ss, js.ws);),
+    arr.toJs(o[Profits], js.wf)
+  ]);;
+
+//: [s|(stRs)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    arr.fromJs(A[Orders], order.fromJs),
+
+    arr.fromJs(A[Hreals], js.rf),
+    arr.fromJs(A[Haccs], js.rf),
+    arr.fromJs(A[Hrefs], js.rf),
+    arr.fromJs(A[Hwithdrawals], js.rf),
+
+    js.rf(A[cash]),
+    arr.fromJs(A[Buys], \ej -> return arr.fromJs(ej, js.rs);),
+    arr.fromJs(A[Sales], \ej -> return arr.fromJs(ej, js.rs);),
+    arr.fromJs(A[Profits], js.rf)
+  ];
+};

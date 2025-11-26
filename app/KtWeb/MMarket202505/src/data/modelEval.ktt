@@ -1,0 +1,16 @@
+// Copyright 04-Apr-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Model evaluation data for charts.
+
+/// Model evaluation type.
+(modelEval) [. ffff];
+
+/// Constructor.
+///   Heval    : Historic ponderation (corrected average).
+///   Hsales   : Historic sales (corrected average).
+///   lastEval : Last ponderation.
+///   lastSales: Last sales.
+/// \f,f,f,f -> <modelEval>
+//: [. ffff]
+new : heval, hsales, lastEval, lastSales;

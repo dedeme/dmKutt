@@ -1,0 +1,95 @@
+// Copyright 27-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+// Global functions.
+
+import "data/card";
+import "data/inv";
+import "data/invTable";
+import "db";
+import "cts";
+
+/// Returns the number of week in year of 'tm'.
+/// Weeks start in Monday.
+///   tm: Date to process.
+//: [i|i]
+weekInYear = \:time tm -> {
+  day1 = time.newDate(1, 1, tm.year());
+  wdEn = time.weekday(day1);
+  wd = wdEn == 0 ? 6 : wdEn - 1;
+  dfDays = tm.dfDays(day1);
+  return (dfDays + wd) / 7;
+};
+
+/// Returns the MMarket index of an investor.
+///   md    : model indentifier.
+///   Params: Investor parameters.
+//: [s[f]|i]
+paramsToIx = \md, Params -> {
+  //: [fff|i]
+  ix1 = \base, inc, value -> {
+    r = math.ftoi((value - base) / inc);
+    dr = math.abs(base + inc * math.itof(r) - value);
+    dr1 = math.abs(base + inc * math.itof(r + 1) - value);
+    return  dr < dr1 ? r : r + 1;
+  };
+
+  Base = cts.ParamBases()[md];
+  Inc = cts.ParamBaseIncs()[md];
+  i0 = ix1(Base[0], Inc[0], Params[0]);
+  if (arr.size(Base) == 1) return i0;
+  return i0 * 20 + ix1(Base[1], Inc[1], Params[1]);
+};
+
+
+/// Makes investor card.
+///   period: one of cts.daily, cts.weekly or cts.monthly.
+///   md    : model indentifier.
+///   params: Investor parameters in JSON format.
+//: [sss|(card)]
+mkCard = \period, md, params -> {
+  id = md + params;
+  Params = arr.fromJs(params, js.rf);
+  Dates = []/s/;
+  LastValues = []/[f]/;
+  LastPositions = []/[i]/;
+  AvgValues = []/[f]/;
+  AvgPositions = []/[i]/;
+  salesV = [0.0];
+  nV = [0];
+  for (d = db.periodDates(period)) {
+    Dates.push(d);
+    nV! += 1;
+
+    tb = invTable.fromJs(db.read(period, d));
+    iV = []/i/;
+    ivV = []/(inv)/;
+    for (i, :inv iv = tb.Invs) {
+      if (iv.id() == id) {
+        iV.push(i);
+        ivV.push(iv);
+        break;
+      }
+    }
+    if (!iV) {
+      LastValues.push([]/f/);
+      LastPositions.push([]/i/);
+      AvgValues.push([]/f/);
+      AvgPositions.push([]/i/);
+      continue;
+    }
+    :inv iv = ivV!;
+    LastValues.push([iv.last]);
+    LastPositions.push([arr.index(tb.LastIx, \ix -> return ix == iV!;)]);
+    AvgValues.push([iv.avg]);
+    AvgPositions.push([arr.index(tb.AvgIx, \ix -> return ix == iV!;)]);
+    salesV! += iv.sales;
+  }
+
+  n = math.itof(nV!);
+  return card.new(
+    md, Params, paramsToIx(md, Params),
+    Dates, LastValues, LastPositions, AvgValues, AvgPositions,
+    math.ftoi(math.round(salesV! / n, 0))
+  );
+};

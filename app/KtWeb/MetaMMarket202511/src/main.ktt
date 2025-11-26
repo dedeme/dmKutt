@@ -1,0 +1,56 @@
+// Copyright 04-Nov-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+import "libdm/log";
+import "libdm/svrp";
+import "pgs/logPg";
+import "pgs/dataPg";
+import "cts";
+import "test";
+import "db";
+import "updater";
+
+/// Main module.
+
+{
+  help = """
+    Use MMarket [help | version | update | key rq]
+    where
+      help     : Shows this message.
+      version  : Shows program version.
+      test     : Executes tests.
+      update   : Updates data.
+      key rq   : Requests 'rq' with 'key'. (Sent by browser)
+    """;
+
+  log.init(file.cat(cts.dataPath(), ["log.tb"]), 100);
+  db.init();
+
+  :arr Args = sys.args();
+
+  if (Args.size() == 1) {
+    switch (Args[0]) {
+      "version": sys.println(cts.version);
+      "test": test.run();
+      "update": updater.run();
+      default: sys.println(help);
+    }
+    return;
+  }
+
+  if (Args.size() != 2) {
+    sys.println(help);
+    return;
+  }
+
+  key = Args[0];
+  svrp.init(key);
+
+  :dic Rq = js.ro(Args[1]);
+  source = js.rs(Rq\source);
+  sys.print(switch(source) {
+    "LogPg": logPg.process(Rq);
+    "DataPg": dataPg.process(Rq);
+    default: throw([]/s/, "Value of source (" + source + ") is not valid");
+  });
+}

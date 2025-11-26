@@ -1,0 +1,32 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Ibex data.
+
+import "libmkt/quote";
+
+/// Ibex type
+(ibex) [. [s][(quote)]];
+
+/// Constructor.
+///   Cos: Nicks of current companies in index.
+///   Qs : Last index quotes (From after to before).
+///        Its number is 'libmkt.cts.historicQuotes'.
+//: [. [s][(quote)]]
+new : Cos, Qs;
+
+//: [(ibex)|s]
+toJs = \o -> return js.wa([
+    arr.toJs(o[Cos], js.ws),
+    arr.toJs(o[Qs], quote.toJs)
+  ]);;
+
+//: [s|(ibex)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    arr.fromJs(A[Cos], js.rs),
+    arr.fromJs(A[Qs], quote.fromJs)
+  ];
+};
+

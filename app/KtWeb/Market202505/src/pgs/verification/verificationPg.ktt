@@ -1,0 +1,200 @@
+// Copyright 23-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Verfication page.
+
+import "libdm/svrp";
+import "libdm/log";
+import "cts";
+import "data/acc/ann";
+import "data/acc/settlement";
+import "data/acc/ldg";
+import "db/acc/diariesDb";
+
+// TYPES
+
+(pfET) [. sif];
+_
+//: [. sif]
+newPfE : pnick, pstocks, pprice;
+
+(pfTtET) [. siff];
+_
+//: [. siff]
+newPfTtE : ptNick, ptStocks, ptPrice, ptTtPrice;
+
+(mkDataT) [. b[(pfET)]f];
+_
+//: [. b[(pfET)]f]
+newMkData : mkOk, mkPf, mkCash;
+
+(stDataT) [. [(pfTtET)]f];
+_
+//: [. [(pfTtET)]f]
+newStData : stPf, stCash;
+
+(hcDataT) [. ff];
+_
+//: [. ff]
+newHcData: hcCash, hcStocks;
+
+// CODE
+
+_
+//: [s|(mkDataT)]
+marketData = \lastDate -> {
+  okV = [true];
+  year = lastDate[:4];
+  cashV = [0.0];
+
+  Anns = arr.filter(
+    diariesDb.investorAnns(year),
+    \:ann a -> return a.date <= lastDate;
+  );
+  :settlement set = ann.mkSettlement(Anns);
+  :ldg l = set.ledger;
+  if (!!set.Errors) {
+    okV! = false;
+    for (e = set.Errors) log.error(e);
+  }
+  cashV! += l.cash;
+  :dic Pf = set.Portfolio;
+
+  Entries = arr.map(
+    Pf.toArr(),
+    \Kv -> return [. Kv[0], Kv[1][0], Kv[1][1]];
+  );
+  return newMkData(okV!, Entries, cashV!);
+};
+
+_
+//: [|(stDataT)]
+stocksData = \ -> {
+  :arr YearsJs = js.ra(file.read("/dm/KtWeb/dmcgi/Stocks/all.tb"));
+  :arr All = YearsJs.map(\E -> return js.ra(E););
+  y = time.fmt(time.now(), "%Y");
+  Year = All.find(\E -> return js.rs(E[0]) == y;)!;
+  Anns = js.ra(js.ra(Year[1])[1]);
+  :dic Pf = {}/[. if]/; // {nick -> [stocks, price]}
+
+  for (ajs = Anns) {
+    A = js.ra(ajs);
+    nick = js.rs(A[3]);
+    stocks = js.ri(A[4]);
+    price = js.rf(A[5]);
+    if (js.rb(A[1])) { // isSell
+      E = Pf[nick];
+      if (E[0] < stocks)
+        throw str.fmt(
+          "Selling %v stocks of %v when only there are %v",
+          [. stocks, nick, E[0]]
+        );
+      else E[0] -= stocks;
+    } else {
+      EOp = Pf.get(nick);
+      if (!EOp) {
+        E = [. 0, 0.0];
+        E[0] = stocks;
+        E[1] = price;
+        Pf.put(nick, E);
+      } else {
+        E = EOp!;
+        sum = E[0] + stocks;
+        E[1] = (math.itof(E[0]) * E[1] + math.itof(stocks) * price) /
+          math.itof(sum);
+        E[0] = sum;
+      }
+    }
+  }
+
+  Entries = arr.map(
+    arr.filter(
+      Pf.toArr(),
+      \Kv -> return Kv[1][0] > 0;
+    ),
+    \Kv -> {
+      stocks = Kv[1][0];
+      price = Kv[1][1];
+      ttCost = math.itof(stocks) * price;
+      return [. Kv[0], stocks, price, ttCost];
+    }
+  );
+
+  return newStData(
+    Entries,
+    arr.reduce(Entries, 0.0, \r, E -> return r + E[3];)
+  );
+};
+
+_
+//: [|(hcDataT)]
+hcontaData = \ -> {
+  accCash = "57202";
+  accStocks = "54000";
+  cashV = [0.0];
+  stocksV = [0.0];
+  y = time.fmt(time.now(), "%Y");
+  Data = js.ra(file.read("/dm/KtWeb/dmcgi/Hconta/" + y + ".db"));
+  Anns = js.ra(Data[3]);
+
+  for (ajs = Anns) {
+    A = js.ra(ajs);
+    :dic Ds = js.ro(A[2]);
+    :dic Cs = js.ro(A[3]);
+
+    amCashDOp = Ds.get(accCash);
+    if (!amCashDOp) {
+      amCashCOp = Cs.get(accCash);
+      if (!!amCashCOp) cashV! -= js.rf(amCashCOp!);
+    } else {
+      cashV! += js.rf(amCashDOp!);
+    }
+
+    amStocksDOp = dic.get(Ds, accStocks);
+    if (!amStocksDOp) {
+      amStocksCOp = Cs.get(accStocks);
+      if (!!amStocksCOp) stocksV! -= js.rf(amStocksCOp!);
+    } else {
+      stocksV! += js.rf(amStocksDOp!);
+    }
+  }
+
+  return newHcData(cashV!, stocksV!);
+};
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      lastDate = js.rs(Rq\lastDate);
+
+      MarketD = marketData(lastDate);
+      ok = MarketD[mkOk];
+
+      StocksD = stocksData();
+
+      HcontaD = hcontaData();
+
+      return svrp.mk({
+        ok: js.wb(ok),
+        marketCash: js.wf(MarketD[mkCash]),
+        MarketStocks: arr.toJs(MarketD[mkPf], \E -> return js.wa([
+            js.ws(E[pnick]),
+            js.wi(E[pstocks]),
+            js.wf(E[pprice])
+          ]);),
+        stocksSum: js.wf(StocksD[stCash]),
+        StocksStocks: arr.toJs(StocksD[stPf], \E -> return js.wa([
+            js.ws(E[ptNick]),
+            js.wi(E[ptStocks]),
+            js.wf(E[ptPrice]),
+            js.wf(E[ptTtPrice])
+          ]);),
+        hcontaCash: js.wf(HcontaD[hcCash]),
+        hcontaSum: js.wf(HcontaD[hcStocks])
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

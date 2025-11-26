@@ -1,0 +1,186 @@
+// Copyright 06-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// up-up, down-down (2) model.
+
+import "../model";
+import "../rRefs";
+import "../cts";
+import "doc/uudd2Doc";
+
+/// Returns a new 'appr2' model.
+//: [|(model)]
+new = \ -> return model.new(
+    "SSBB2",
+    "Sube-Sube/Baja-Baja (2)",
+    uudd2Doc.text,
+    ["InicioV", "InicioC"],
+    [model.percParam, model.percParam]
+  );;
+
+/// Returns a new [. isSold, reference, closes array] of one company,
+/// where:
+/// state -> is true if the company is not in stock.
+/// reference -> is the new company reference.
+/// closes -> Closes used for calculating references.
+///   Ref   : Reference data of previous calculus
+///           ([. state, reference, closes array]).
+///           'reference' is equals -1 when it is not fixed the initial one.
+///   cl    : Current close.
+///   Params: Model parameters.
+//: [[. bf[f]]f[f] | [. bf[f]]]
+ref = \Ref, cl, Params -> {
+  startSale = Params[0];
+  startBuy = Params[1];
+  upStart = 1.0 + startSale;
+  downStart = 1.0 - startBuy;
+
+  isSold = Ref[0];
+  rf = Ref[1];
+  Cls = Ref[2];
+  if (rf < 0.0) return [. false, cl * downStart, [cl]];
+
+  prvC = Cls[0];
+  if (isSold) {
+    if (cl > rf) {
+     return [. false, cl * downStart, [cl]];
+    } else {
+      dif = cl - prvC;
+      rf0 = rf * (prvC + dif) / prvC;
+      rf2 = rf < rf0 ? rf : rf0;
+      return [. true, rf2, [cl]];
+    }
+  } else {
+    if (cl < rf) {
+      return [. true, cl * upStart, [cl]];
+    } else {
+      dif = cl - prvC;
+      rf0 = rf * (prvC + dif) / prvC;
+      rf2 = rf > rf0 ? rf : rf0;
+      return [. false, rf2, [cl]];
+    }
+  }
+};
+
+//: [ [[f]][f] | [[f]] ]
+refs = \:arr Closes, :arr Params -> {
+  startSale = Params[0];
+  startBuy = Params[1];
+  upStart = 1.0 + startSale;
+  downStart = 1.0 - startBuy;
+  :arr Cls0 = Closes[0];
+  ndates = Closes.size();
+  ncos = Cls0.size();
+
+  IsSolds = arr.new(false, ncos);
+  Refs = []/f/;
+  for (cl = Cls0) Refs.push(cl * downStart);
+
+  Refs2 = Refs.copy();
+  AllRefs = arr.new(Refs2, ndates);
+  for (idate = 1:ndates) {
+    :arr ClosesR = Closes.get(idate);
+    :arr PrvCloses = Closes.get(idate - 1);
+
+    for (ico = 0:ncos) {
+      c = ClosesR.get(ico);
+      prvC = PrvCloses.get(ico);
+      rf = Refs.get(ico);
+
+      if (IsSolds.get(ico)) {
+        if (c > rf) {
+          IsSolds.set(ico,false);
+          Refs.set(ico,c * downStart);
+        } else {
+          dif = c - prvC;
+          rf0 = rf * (prvC + dif) / prvC;
+          rf2 = rf < rf0 ? rf : rf0;
+          Refs.set(ico,rf2);
+        }
+      } else {
+        if (c < rf) {
+          IsSolds.set(ico,true);
+          Refs.set(ico,c * upStart);
+        } else {
+          dif = c - prvC;
+          rf0 = rf * (prvC + dif) / prvC;
+          rf2 = rf > rf0 ? rf : rf0;
+          Refs.set(ico,rf2);
+        }
+      }
+    }
+    AllRefs.set(idate, Refs.copy());
+  }
+  return AllRefs;
+};
+
+/// Returns real references.
+///   dateIx : Index of 'Closes' corresponding to the 'rref' date, or -1 if
+///            it is missing.
+///   rref   : Real reference value, or -1.0 if it is missing.
+///   Closes : Company closes.
+///            These closes must be regularized (without -1.0 values).
+///   Params : Parameter values.
+//: [if[f][f]|(rRefs)]
+realRefs = \dateIx, rref, Closes, Params -> {
+  startSale = Params[0];
+  startBuy = Params[1];
+  upStart = 1.0 + startSale;
+  downStart = 1.0 - startBuy;
+
+  closesSize = arr.size(Closes);
+
+  dateIxV = [dateIx];
+  rrefV = [rref];
+  if (dateIx == -1) {
+    dateIxV! = 0;
+    rrefV! = Closes[0] * downStart;
+  }
+  dtIx = dateIxV!;
+  rf = rrefV!;
+
+  :arr Refs = arr.new(0.0, closesSize);
+  Refs.setRange(0, Closes, 0, dtIx);
+  Refs[dtIx] = rf;
+
+  cl = Closes[dtIx];
+  isSoldV = [rf > cl ? true : false];
+
+  changeFirstV = [dtIx > cts.realReferenceDateIx ? false : true];
+  for (i = dtIx+1:closesSize) {
+    cl = Closes[i];
+    prvCl = Closes[i - 1];
+    rf = Refs[i - 1];
+    if (isSoldV!) {
+      if (cl > rf) {
+        isSoldV! = false;
+        Refs[i] = cl * downStart;
+        if (changeFirstV! & i > cts.realReferenceDateIx) {
+          dateIxV! = i;
+          rrefV! = Refs[i];
+          changeFirstV! = false;
+        }
+      } else {
+        rf0 = rf * cl / prvCl;
+        rf2 = rf < rf0 ? rf : rf0;
+        Refs[i] = rf2;
+      }
+    } else {
+      if (cl < rf) {
+        isSoldV! = true;
+        Refs[i] = cl * upStart;
+        if (changeFirstV! & i > cts.realReferenceDateIx) {
+          dateIxV! = i;
+          rrefV! = Refs[i];
+          changeFirstV! = false;
+        }
+      } else {
+        rf0 = rf * cl / prvCl;
+        rf2 = rf > rf0 ? rf : rf0;
+        Refs[i] = rf2;
+      }
+    }
+  }
+
+  return rRefs.new(Refs, dateIxV!, rrefV!);
+};

@@ -1,0 +1,18 @@
+// Copyright 04-Sep-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Oportunity costs hub.
+
+import "libdm/svrp";
+import "opp/chartsPg";
+import "opp/listPg";
+
+//: [{s}|s]
+process = \Rq -> {
+  source = js.rs(Rq\source);
+  return switch (source) {
+    "ChartsPg": chartsPg.process(Rq);
+    "ListPg": listPg.process(Rq);
+    default: throw([]/s/, "Value of source (" + source + ") is not valid");
+  };
+};

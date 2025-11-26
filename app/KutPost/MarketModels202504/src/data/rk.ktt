@@ -1,0 +1,29 @@
+// Copyright 05-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Date global rank.
+
+import "rkEntry";
+
+(rk) [. s[(rkEntry)]];
+
+/// Constructor.
+///   date   : Date in format "YYYYMMDD".
+///   Entries: Unsorted array of entries.
+//: [. s[(rkEntry)]]
+new : date, Entries;
+
+//: [(rk)|s]
+toJs = \o -> return js.wa([
+    js.ws(o.date),
+    arr.toJs(o.Entries, rkEntry.toJs)
+  ]);;
+
+//: [s|(rk)]
+fromJs = \j -> {
+  a = js.ra(j);
+  return [.
+    js.rs(a[date]),
+    arr.fromJs(a[Entries], rkEntry.fromJs)
+  ];
+};

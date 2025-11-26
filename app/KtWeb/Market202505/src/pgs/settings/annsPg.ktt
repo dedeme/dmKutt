@@ -1,0 +1,67 @@
+// Copyright 22-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Investor opetations widget.
+
+import "libdm/svrp";
+import "libdm/log";
+import "data/acc/anns";
+import "data/acc/ann";
+import "data/acc/ldg";
+import "data/acc/settlement";
+import "db/acc/diariesDb";
+import "db";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      year0 = js.rs(Rq\year); // Can be ""
+
+      :arr Years = diariesDb.investorYears();
+      year = Years.any(\y -> return y == year0;) ? year0 : Years[0];
+      :arr Anns = diariesDb.investorAnns(year);
+      :settlement set = ann.mkSettlement(Anns);
+      :ldg l = set.ledger;
+      okV = [true];
+      if (!!set.Errors) {
+        for (e = set.Errors) log.error(e);
+        okV! = false;
+      }
+      return svrp.mk({
+        dbKey: js.ws(db.readKey()),
+        ok: js.wb(okV!),
+        Years: Years.toJs(js.ws),
+        year: js.ws(year),
+        AnnsJs: Anns.toJs(ann.toJs),
+        cash: js.wf(l.cash)
+      });
+    }
+    "new": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      :ann a = ann.fromJs(Rq\annotation);
+      Years = diariesDb.investorYears();
+      :anns as = diariesDb.read(Years[0]);
+      as.add(a);
+      diariesDb.write(Years[0], as);
+
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    "del": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      id = js.ri(Rq\annId);
+      Years = diariesDb.investorYears();
+      :anns as = diariesDb.read(Years[0]);
+      as.del(id);
+      diariesDb.write(Years[0], as);
+
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

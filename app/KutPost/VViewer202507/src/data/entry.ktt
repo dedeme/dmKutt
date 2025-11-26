@@ -1,0 +1,33 @@
+// Copyright 21-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Video entry data.
+
+(entry) [. ssi];
+
+/// Constructor.
+///   dir   : Video directory.
+///   base  : Video base (including directory.)
+///   sights: Number of sights.
+//: [. ssi]
+new : dir, base, sights;
+
+//: [(entry)i|]
+setSights = \O, v -> O[sights] = v;;
+
+//: [(entry)|s]
+toJs = \O -> return js.wa([
+    js.ws(O[dir]),
+    js.ws(O[base]),
+    js.wi(O[sights])
+  ]);;
+
+//: [s|(entry)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return new(
+    js.rs(A[0]),
+    js.rs(A[1]),
+    js.ri(A[2])
+  );
+};

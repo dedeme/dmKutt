@@ -1,0 +1,23 @@
+// Copyright 18-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Current quote value.
+
+/// 'Current quote value' type
+(currentQ) [. sf];
+
+/// Constructor.
+/// Value <= 0 is not valid.
+///   code : Company server code.
+///   value: Current value.
+//: [. sf]
+new : code, value;
+
+//: [s|(currentQ)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[code]),
+    js.rf(A[value])
+  ];
+};

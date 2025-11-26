@@ -1,0 +1,22 @@
+// Copyright 16-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Package index page.
+
+import "libdm/svrp";
+import "readers/ixReader";
+import "data/indexTree";
+
+/// Process request.
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "index": {
+      return svrp.mk({
+        treeOp: arr.toJs(ixReader.read(js.rs(Rq\pack)), indexTree.toJs)
+      });
+    }
+    default: return throw([]/s/, "Value of rq (" + rq + ") is not valid");
+  }
+};

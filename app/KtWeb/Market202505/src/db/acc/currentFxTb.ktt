@@ -1,0 +1,24 @@
+// Copyright 08-Sep-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Current fixed incomes values table.
+
+import "../accDb";
+import "data/acc/currentFx";
+_
+//: [|s]
+fpath = \ -> return file.cat(accDb.dpath(), ["currentFx.tb"]);;
+
+/// Initializes data base
+//: [|]
+init = \ -> {
+  write([]/(currentFx)/);
+};
+
+/// Reads table.
+//: [|s]
+readJs = \ -> return file.read(fpath());;
+
+/// Writes table.
+//: [[(currentFx)]|]
+write = \:arr tb -> file.write(fpath(), tb.toJs(currentFx.toJs));;

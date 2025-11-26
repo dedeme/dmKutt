@@ -1,0 +1,32 @@
+// Copyright 05-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Global rank entry.
+
+(rkEntry) [. si[i]];
+
+/// Constructor.
+///   id   : Model identifier.
+///   ix   : Index of investor.
+///   valOp: Price, reference or deviation. It it is '[]', 'val' is not valid
+///        and there is a message in log.
+//: [. si[i]]
+new : id, ix, valOp;
+
+//: [(rkEntry)|s]
+toJs = \o -> return js.wa([
+    js.ws(o.id),
+    js.wi(o.ix),
+    arr.toJs(o.valOp, js.wi)
+  ]);;
+
+//: [s|(rkEntry)]
+fromJs = \j -> {
+  a = js.ra(j);
+  return [.
+    js.rs(a[id]),
+    js.ri(a[ix]),
+    arr.fromJs(a[valOp], js.ri)
+  ];
+};
+

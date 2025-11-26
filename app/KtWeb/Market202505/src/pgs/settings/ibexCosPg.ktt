@@ -1,0 +1,71 @@
+// Copyright 22-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Management of Ibex companies to operate page.
+
+import "libdm/svrp";
+import "data/co/ibexCo";
+import "db/ibexCosTb";
+import "db";
+import "cts";
+import "fns";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      return svrp.mk({
+        dbKey: js.ws(db.readKey()),
+        capital: js.wf(cts.ibexInvestment),
+        Cos: arr.toJs(ibexCosTb.read(), ibexCo.toJs),
+        Ponds: dic.toJs(fns.getIbexPonderations(true), js.wf)
+      });
+    }
+    "list": {
+      Cos = []/[. sbf]/; // [[nick, isSelected, weight].]
+      Ponds = fns.getIbexPonderations(false);
+      for (:ibexCo c = ibexCosTb.read())
+        Cos.push([. c.nick, c.sel, Ponds[c.nick]]);
+      return svrp.mk({
+        Cos: arr.toJs(Cos, \E -> return js.wa([
+            js.ws(E[0]),
+            js.wb(E[1]),
+            js.wf(E[2])
+          ]);)
+      });
+    }
+    "update": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      :ibexCo ibexC = ibexCo.fromJs(Rq\ibexC);
+      Cos = ibexCosTb.read();
+      for (i, :ibexCo c = Cos) if (c.nick == ibexC.nick) Cos[i] = ibexC;
+      ibexCosTb.write(Cos);
+
+      return svrp.mkEmpty();
+    }
+    "select": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      nick = js.rs(Rq\nick);
+      Cos = ibexCosTb.read();
+      for (:ibexCo c = Cos) if (c.nick == nick) c.sel = !c.sel;
+      ibexCosTb.write(Cos);
+
+      return svrp.mkEmpty();
+    }
+    "updateAll": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      Cos = arr.fromJs(Rq\Cos, ibexCo.fromJs);
+      ibexCosTb.write(Cos);
+
+      return svrp.mkEmpty();
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

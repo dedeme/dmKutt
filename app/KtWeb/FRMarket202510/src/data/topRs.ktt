@@ -1,0 +1,29 @@
+// Copyright 20-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Top investor data to show.
+
+/// Top type.
+(topRs) [. sifiif];
+
+/// Constructor.
+///   id      : Investor identifer (Model + parameters).
+///   cPos    : Current position.
+///   cAssets : Current assets (Base 1, six decimals).
+///   sales   : Anual sales.
+///   tPos    : Top historic position.
+///   tAssets : Top historic assets (Base 1, six decimals)
+//: [. sifiif]
+new : id, cPos, cAssets, sales, tPos, tAssets;
+
+//: [(topRs)|s]
+toJs = \o -> {
+  return js.wa([
+    js.ws(o[id]),
+    js.wi(o[cPos]),
+    js.wf2(o[cAssets], 6),
+    js.wi(o[sales]),
+    js.wi(o[tPos]),
+    js.wf2(o[tAssets], 6)
+  ]);
+};

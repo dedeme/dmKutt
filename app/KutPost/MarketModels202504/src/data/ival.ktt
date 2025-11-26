@@ -1,0 +1,12 @@
+// Copyright 05-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Index-Value of an array of results.
+
+(ival) [. ii];
+
+/// Constructor.
+///   ix : Index of results array.
+///   val: Result value.
+//: [. ii]
+new : ix, val;

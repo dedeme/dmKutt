@@ -1,0 +1,81 @@
+// Copyright 30-Mar-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary page.
+
+import "libdm/svrp";
+import "libmkt/models";
+import "libmkt/model";
+import "data/sm";
+import "data/smE";
+import "data/smVal";
+import "data/evE";
+import "data/upRs";
+import "data/rankE";
+import "data/ranks";
+import "db";
+import "cts";
+
+_
+//: [ss|[(rankE)]]
+mkRank = \mdId, period -> {
+  Evss = []/[(evE)]/;
+  for (d = db.dates(period)) Evss.push(db.read(period, d, mdId));
+
+  Evs = Evss.peek();
+  Points = []/[. if]/;
+  for (i, :evE e = Evs) Points.push([. i, e.avg[upRs.pon]]);
+  Points.sort(\e1, e2 -> return e1[1] > e2[1];);
+  Sels = Points.take(10);
+
+  LastPoints = []/[. if]/;
+  for (i, :evE e = Evs) LastPoints.push([. i, e.eval[upRs.pon]]);
+  LastPoints.sort(\e1, e2 -> return e1[1] > e2[1];);
+
+  R = []/(rankE)/;
+  for (i, AvgE = Sels) {
+    pIx = AvgE[0];
+    pAvg = i;
+    avg = AvgE[1];
+    pLastV = [pAvg];
+    lastV = [avg];
+    for (j, LastE = LastPoints) if (LastE[0] == pIx) {
+      pLastV! = j;
+      lastV! = LastE[1];
+      break;
+    }
+
+    historic = []/f/;
+    for (Evs = Evss) {
+      if (!Evs) continue;
+      :evE e = Evs[pIx];
+      historic.push(e.avg[upRs.pon]);
+    }
+    while (historic.size() < cts.datesInPeriod) historic.unshift(historic[0]);
+
+    R.push(rankE.new(pIx, pAvg, avg, pLastV!, lastV!, historic));
+  }
+
+  return R;
+};
+
+//: [{s}|s]
+process = \:dic Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      mdId = js.rs(Rq\mdId);
+      Ps = cts.periods(); // = ["daily", "weekly", "monthly"]
+      rks = ranks.new(
+        mkRank(mdId, Ps[0]),
+        mkRank(mdId, Ps[1]),
+        mkRank(mdId, Ps[2])
+      );
+      return svrp.mk({
+        rks: rks.toJs()
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};
+

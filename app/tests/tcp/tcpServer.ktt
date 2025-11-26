@@ -1,0 +1,47 @@
+// Copyright 02-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+// How to work the test:
+//  run in one console kutt ttcp_server
+//  run in anonther kutt ttcp_client
+//  In client write text.
+
+{
+  sys.println("tcp_server ...");
+
+  :tcp sv = tcp.server(23344, 3);
+
+  //: [<tcpConn>|]
+  process = \:tcp conn -> {
+    txRs = conn.read(2000, 2);
+
+    if (!txRs!) {
+      sys.println(txRs[1]);
+      conn.closeConnection();
+      return;
+    }
+
+    tx = bytes.toStr(txRs!!);
+    sys.println("Received: " + tx);
+
+    err = conn.write(bytes.fromStr("Send from server: " + tx));
+    if (err != "") sys.println(err);
+
+    conn.closeConnection();
+
+    if (tx == "end") {
+      sv.closeServer();
+      sys.println("  finished.");
+      sys.exit(0);
+    }
+  };
+
+  while () {
+    connRs = sv.accept();
+
+    if (!connRs!) throw connRs[1];
+    thread.run(\-> {
+      process(connRs!!);
+    });
+  }
+}

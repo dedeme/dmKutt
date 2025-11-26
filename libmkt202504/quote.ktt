@@ -1,0 +1,246 @@
+// Copyright 11-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Market quote.
+
+/// Quote type.
+(quote) [. sffffib];
+
+/// Create a new quote.
+///   date : Date of quote in format "YYYYMMDD".
+///   open : Open value.
+///   close: Close value.
+///   max  : Maximum value.
+///   min  : Minimum value.
+///   vol  : Valume value.
+///   force: 'true' if quote was modified manually.
+//: [. sffffib]
+new : date, open, close, max, min, vol, force;
+
+/// Create a missing quote (every numeric value is < 0 and force == false)
+//: [s|(quote)]
+newMissing = \date -> return new(date, -1.0, -1.0, -1.0, -1.0, -1, false);;
+
+/// Returns true if 'this' is a missing quote.
+//: [(quote)|b]
+isMissing = \q -> return q[vol] < 0;;
+
+/// Checks maximum and minimum and returns a new quote corrected, if it is
+/// necessary.
+///
+/// If this->force = true, quote will not be corrected.
+///
+/// If quote was corrected, its 'force' field is set to true.
+///
+///   q: Quote to correct.
+///   ----
+///   Returns [. quote, Errors]:
+///     T[0] : Corrected quote.
+///     T[1] : Array of corrections (e.g. Close > Max).
+//: [(quote)|[. (quote)[s]]]
+correct1 = \q -> {
+  if (q[force]) return [. q, []/s/];
+
+  if (isMissing(q)) return [. q, ["Missing"]];
+
+  Errs = []/s/;
+  maxV = [q[max]];
+  minV = [q[min]];
+  if (q[open] > q[max]) {
+    maxV! = q[open];
+    Errs.push("Open > Max");
+  }
+  if (q[close] > q[max]) {
+    maxV! = q[close];
+    Errs.push("Close > Max");
+  }
+  if (q[open] < q[min]) {
+    minV! = q[open];
+    Errs.push("Open < Min");
+  }
+  if (q[close] < q[min]) {
+    minV! = q[close];
+    Errs.push("Close < Min");
+  }
+
+  qr = !Errs ? q : new(q[date], q[open], q[close], maxV!, minV!, q[vol], true);
+  return [. qr, Errs];
+};
+
+/// Checks maximum and minimum of 'qcurrent', taken account 'qprevious' and
+/// returns a new quote corrected, if it is necessary.
+///
+/// If last->force = true, quote will not be corrected.
+///
+/// If quote was corrected, its 'force' field is set to true.
+///
+///   qcurrent : Quote to correct.
+///   qprevious: Quote previous to "current"
+///   ----
+///   Returns [. quote, Errors]:
+///     T[0] : Corrected quote.
+///     T[1] : Array of corrections (e.g. Close > Max).
+//: [(quote)(quote)|[. (quote)[s]]]
+correct2 = \qcurrent, qprevious -> {
+  if (qcurrent[force]) return [. qcurrent, []/s/];
+
+  if (isMissing(qcurrent)) return [. qcurrent, []/s/];
+
+  Errs = []/s/;
+  openV = [qcurrent[open]];
+  closeV = [qcurrent[close]];
+  maxV = [qcurrent[max]];
+  minV = [qcurrent[min]];
+
+  if (isMissing(qprevious) | qprevious[max] < qprevious[min])
+    return correct1(qcurrent);
+
+  if (qcurrent[open] > qcurrent[max]) {
+    if (qcurrent[open] == qprevious[open] & qcurrent[max] != qprevious[max])
+      openV! = qcurrent[max];
+    else
+      maxV! = qcurrent[open];
+    Errs.push("Open > Max");
+  }
+  if (qcurrent[close] > qcurrent[max]) {
+    if (qcurrent[close] == qprevious[close] & qcurrent[max] != qprevious[max])
+      closeV! = qcurrent[max];
+    else
+      maxV! = qcurrent[close];
+    Errs.push("Close > Max");
+  }
+  if (qcurrent[open] < qcurrent[min]) {
+    if (qcurrent[open] == qprevious[open] & qcurrent[min] != qprevious[min])
+      openV! = qcurrent[min];
+    else
+      minV! = qcurrent[open];
+    Errs.push("Open < Min");
+  }
+  if (qcurrent[close] < qcurrent[min]) {
+    if (qcurrent[close] == qprevious[close] & qcurrent[min] != qprevious[min])
+      closeV! = qcurrent[min];
+    else
+      minV! = qcurrent[close];
+    Errs.push("Close < Min");
+  }
+
+  qr = !Errs
+    ? qcurrent
+    : new(qcurrent[date], openV!, closeV!, maxV!, minV!, qcurrent[vol], true)
+  ;
+  return [. qr, Errs];
+};
+
+/// Checks increment (+-20%) and returns a new quote equals to 'qcurrent', setting
+/// qcurrent[force] to true if such increment has happened.
+///
+///   qcurrent : Quote to correct.
+///   qprevious: Quote previous to "current"
+///   ----
+///   Returns [. quote, Errors]:
+///     T[0] : Corrected quote.
+///     T[1] : Array of corrections (e.g. Close > Max).
+//: [(quote)(quote)|[. (quote)[s]]]
+correct3 = \qcurrent, qprevious -> {
+  if (qcurrent[force]) return [. qcurrent, []/s/];
+  if (isMissing(qcurrent) | isMissing(qprevious)) return [. qcurrent, []/s/];
+
+  Errs = []/s/;
+
+  if (qcurrent[open] > qprevious[open] * 1.2) Errs.push("Open +20%");
+  if (qcurrent[close] > qprevious[close] * 1.2)  Errs.push("Close +20%");
+  if (qcurrent[max] > qprevious[max] * 1.2) Errs.push("Max +20%");
+  if (qcurrent[min] > qprevious[min] * 1.2) Errs.push("Min +20%");
+
+  if (qcurrent[open] < qprevious[open] * 0.8) Errs.push("Open -20%");
+  if (qcurrent[close] < qprevious[close] * 0.8) Errs.push("Close -20%");
+  if (qcurrent[max] < qprevious[max] * 0.8) Errs.push("Max -20%");
+  if (qcurrent[min] < qprevious[min] * 0.8) Errs.push("Min -20%");
+
+  qr = !Errs
+    ? qcurrent
+    : new (
+        qcurrent[date], qcurrent[open], qcurrent[close],
+        qcurrent[max], qcurrent[min], qcurrent[vol], true
+      )
+  ;
+  return [. qr, Errs];
+};
+
+/// Returns a string representation of "this". Used to write in company tables
+/// NICK.tb.
+//: [(quote)|s]
+toStr = \q -> return str.fmt(
+    "%v:%v:%v:%v:%v:%v:%v", [.
+      q[date],
+      math.ftos(q[open]), math.ftos(q[close]),
+      math.ftos(q[max]), math.ftos(q[min]), math.itos(q[vol]),
+      q[force]
+    ]
+  );;
+
+/// Returns a quote from its string representation. Used to read in company tables.
+/// 's' is trimized.
+/// THROWS exception if it fails.
+//: [s|(quote)]
+fromStr = \s -> {
+  //: [s|s]
+  err = \msg -> return str.fmt("%v\nin '%v'", [. msg, s]);;
+
+  A = str.split(s, ":");
+  if (arr.size(A) != 7) throw err("Bad fields number");
+
+  if (str.len(A[date]) != 8 | !math.isDigits(A[date]))
+    throw err("Bad date value '" + A[date] + "'");
+
+  OCMM = arr.new(0.0, 5);
+  for (i = open:vol) {
+    nOp = math.stof(A[i]);
+    if (!nOp) throw err("Bad quote '" + A[i] + "'");
+    if (nOp! == 0.0) throw err(
+        switch (i) {1: "Open"; 2: "Close"; 3: "Max"; default: "Min";} +
+        " == 0"
+      );
+    OCMM[i - 1] = nOp!;
+  }
+  nOp = math.stoi(A[vol]);
+  if (!nOp) throw err("Bad volume '" + A[vol] + "'");
+
+  if (A[force] != "true" & A[force] != "false")
+    throw err("Bad boolean value '" + A[force] + "'");
+
+  return new (
+    A[date],
+    OCMM[open-1],
+    OCMM[close-1],
+    OCMM[max-1],
+    OCMM[min-1],
+    nOp!,
+    A[force] == "true" ? true : false
+  );
+};
+
+//: [(quote)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[date]),
+    js.wf(o[open]),
+    js.wf(o[close]),
+    js.wf(o[max]),
+    js.wf(o[min]),
+    js.wi(o[vol]),
+    js.wb(o[force])
+  ]);;
+
+//: [s|(quote)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[date]),
+    js.rf(A[open]),
+    js.rf(A[close]),
+    js.rf(A[max]),
+    js.rf(A[min]),
+    js.ri(A[vol]),
+    js.rb(A[force])
+  ];
+};

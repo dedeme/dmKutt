@@ -1,0 +1,37 @@
+// Copyright 02-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+// How to work the test:
+//  run in one console kutt ttcp_server
+//  run in anonther kutt ttcp_client
+//  In client write text.
+
+{
+  sys.println("tcp_client ...");
+
+  while () {
+    rq = sys.readLine();
+    cnRs = tcp.dial("localhost:23344");
+    if (!cnRs!) throw(cnRs[1]);
+
+    :tcp cl = cnRs!!;
+    err = cl.write(bytes.fromStr(rq));
+    if (err != "") {
+      sys.println(err);
+      cl.closeConnection();
+    }
+
+    rsRs = cl.read(2000, 10);
+    if (!rsRs!) sys.println(rsRs[1]);
+    else {
+      tx = bytes.toStr(rsRs!!);
+      if (tx != "") sys.println(tx);
+      else sys.println("Empty response");
+    }
+
+    cl.closeConnection();
+    if (rq == "end") break;
+  }
+
+  sys.println("  finished.");
+}

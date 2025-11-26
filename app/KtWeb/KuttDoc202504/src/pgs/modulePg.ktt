@@ -1,0 +1,60 @@
+// Copyright 17-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Paths page.
+
+import "libdm/svrp";
+import "data/dpath";
+import "data/doc";
+import "data/docCEntry";
+import "data/docEntry";
+import "db/pathsTb";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "doc": {
+      pack, rpath = [. js.rs(Rq\pack), js.rs(Rq\pth)];
+      pathOp = arr.find(pathsTb.read(), \:dpath p -> return p.id == pack;);
+      rp = {D: "[]"};
+      if (!pathOp)
+        return svrp.mkError("Library " + pack + " not found", rp);
+      :dpath p = pathOp!;
+      path = file.cat(p.spath, [rpath]);
+      dataOp, err = sys.cmd("kutt", ["-d", path]);
+      if (!dataOp) return svrp.mkError(err, rp);
+      Es = arr.fromJs(dataOp!, docCEntry.fromJs);
+      errOp = Es.find(\:docCEntry e -> return e.type == "r";);
+      if (!!errOp) {
+        :docCEntry err = errOp!;
+        return svrp.mkError(math.itos(err.line) + ": " + err.docTx, rp);
+      }
+
+      docTxV = [""];
+      Imports = []/(docEntry)/;
+      Types = []/(docEntry)/;
+      Values = []/(docEntry)/;
+      Enumerations = []/(docEntry)/;
+      Indexeds = []/(docEntry)/;
+      Functions = []/(docEntry)/;
+      for (:docCEntry e = Es) {
+        switch (e.type) {
+          "s": docTxV! = e.docTx;
+          "i": Imports.push(e.toDocEntry());
+          "t": Types.push(e.toDocEntry());
+          "v": Values.push(e.toDocEntry());
+          "e": Enumerations.push(e.toDocEntry());
+          "x": Indexeds.push(e.toDocEntry());
+          "f": Functions.push(e.toDocEntry());
+        }
+      }
+
+      D = doc.toJs(doc.new(
+        docTxV!, Imports, Types, Values, Enumerations, Indexeds, Functions
+      ));
+      return svrp.mkError("", {D});
+    }
+    default: return throw([]/s/, "Value of rq (" + rq + ") is not valid");
+  }
+};

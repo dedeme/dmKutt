@@ -1,0 +1,19 @@
+// Copyright 15-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Constants.
+
+import "libdm/svrp";
+
+/// Application name.
+/// s
+appName = "KuttDoc";
+/// Application version.
+/// s
+version = "202504";
+/// Data version.
+/// s
+dataVersion = "2024.04";
+/// Data file.
+//: [|s]
+dataPath = \ -> return file.cat(svrp.dataRoot, [appName]);;

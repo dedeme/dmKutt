@@ -1,0 +1,86 @@
+// Copyright 13-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Global functions.
+
+import "cts";
+
+/// Calculates statistis.
+/// For 'average' and 'crrAverage' returns one value for each investor (col).
+/// For 'deviation' returns only only one value with the deviation of the
+/// greater 'crrAverage' value,
+///   tp: Type of statistics ("average", "crrAverage", "deviation")
+///   Rss: Values to make calculations. (days (rows) x invs (cols))
+/// NOTE: When in a calculus, some historic value is -1, the final result is
+///       also -1.
+//: [s[[i]]|[i]]
+stats = \tp, :arr Vss -> {
+  nrows = Vss.size();
+  ncols = arr.size(Vss[0]);
+  Fvss = arr.map(Vss, \:arr Row -> return Row.map(math.itof););
+
+  // SUM
+
+  :arr Sums = arr.new(0.0, ncols);
+  SNs = arr.new(0.0, ncols);
+  for (r = 0:nrows) {
+    Row = Fvss[r];
+    for (c = 0:ncols) {
+      v = Row[c];
+      sm = Sums[c];
+      if (sm < 0.0 | v < 0.0) Sums[c] = -1.0;
+      else {
+        Sums[c] += v;
+        SNs[c] += 1.0;
+      }
+    }
+  }
+
+  // AVG
+
+  :arr Avgs = Sums.copy();
+  for (c = 0:ncols)
+    if (Avgs[c] < 0.0) Avgs[c] = -1.0;
+    else Avgs[c] /= SNs[c];
+
+  if (tp == cts.stats()[1])
+    return Avgs.map(math.ftoi);                         // average -------------
+
+  // DEVIATION SUMS
+
+  nrows1 = nrows - 1;
+  Slopes = []/f/;
+  for (c = 0:ncols)
+    Slopes.push((Fvss[nrows1][c] - Fvss[0][c]) / math.itof(nrows));
+
+  :arr Dsums = arr.new(0.0, ncols);
+  Row0 = Fvss[0];
+  for (r = 0:nrows) {
+    Rowf = Fvss[r];
+    for (c = 0:ncols) {
+      if (Avgs[c] < 0.0) Dsums[c] = -1.0;
+      else Dsums[c] += math.abs(Rowf[c] - Row0[c] + math.itof(r) * Slopes[c]);
+    }
+  }
+
+  maxDvV = [-1.0];
+  maxCrrV = [-1.0];
+  for (c = 0:ncols) {
+    if (Avgs[c] > 0.0) {
+      dv = Dsums[c] / SNs[c];
+      v = Avgs[c] - dv;
+      Dsums[c] = v;
+      if (v > maxCrrV!) {
+        maxCrrV! = v;
+        maxDvV! = dv / Avgs[c];
+      }
+    }
+  }
+
+  if (tp == cts.stats()[2])
+    return Dsums.map(math.ftoi);                        // corrected average ---
+
+  // DEVIATIONS
+
+  return [math.ftoi(maxDvV! * 10_000.0)];               // deviations ----------
+};

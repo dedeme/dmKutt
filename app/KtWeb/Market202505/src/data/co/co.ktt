@@ -1,0 +1,28 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Company data
+
+/// Company type
+(co) [. sb];
+
+/// Constructor.
+///   nick      : Identifier of company.
+///   isSelected: 'true' if company is selected to operate.
+//: [. sb]
+new : nick, isSelected;
+
+//: [(co)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[nick]),
+    js.wb(o[isSelected])
+  ]);;
+
+//: [s|(co)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[nick]),
+    js.rb(A[isSelected])
+  ];
+};

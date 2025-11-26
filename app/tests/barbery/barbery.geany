@@ -1,0 +1,88 @@
+[file_prefs]
+final_new_line=true
+ensure_convert_new_lines=false
+strip_trailing_spaces=true
+replace_tabs=false
+
+[indentation]
+indent_width=2
+indent_type=0
+indent_hard_tab_width=8
+detect_indent=false
+detect_indent_width=false
+indent_mode=2
+
+[project]
+name=kmarkdown
+base_path=./
+description=
+file_patterns=
+
+[long line marker]
+long_line_behaviour=1
+long_line_column=80
+
+[build-menu]
+NF_00_LB=Browser
+NF_00_CM=
+NF_00_WD=
+NF_01_LB=Compilar obje_tivo personalizado...
+NF_01_CM=
+NF_01_WD=
+NF_02_LB=Templates
+NF_02_CM=firefox localhost:8008/KTemplate
+NF_02_WD=
+NF_03_LB=Geany keywords
+NF_03_CM=kgeanyWords ./
+NF_03_WD=%p
+EX_00_LB=Run
+EX_00_CM=kutt src/main
+EX_00_WD=%p
+EX_01_LB=
+EX_01_CM=
+EX_01_WD=
+filetypes=Kut;Markdown;Kutt;
+KutFT_00_LB=Check
+KutFT_00_CM=kut -c main
+KutFT_00_WD=%p
+KutFT_01_LB=Run
+KutFT_01_CM=holimusic
+KutFT_01_WD=
+MarkdownFT_00_LB=Run
+MarkdownFT_00_CM=kmarkdown
+MarkdownFT_00_WD=%p/doc
+MarkdownFT_01_LB=Run
+MarkdownFT_01_CM=kmarkdown
+MarkdownFT_01_WD=%p/doc
+KuttFT_00_LB=Check
+KuttFT_00_CM=kutt -c src/main
+KuttFT_00_WD=%p
+KuttFT_01_LB=Run
+KuttFT_01_CM=kutt src/main
+KuttFT_01_WD=%p
+
+[files]
+current_page=0
+FILE_NAME_0=422;Kutt;0;EUTF-8;0;1;0;%2Fdm%2FdmKutt%2Fapp%2Ftests%2Fbarbery%2Fsrc%2Fmain.ktt;0;2
+FILE_NAME_1=197;Kutt;0;EUTF-8;0;1;0;%2Fdm%2FdmKutt%2Fapp%2Ftests%2Fbarbery%2Fsrc%2Fclock.ktt;0;2
+FILE_NAME_2=219;Kutt;0;EUTF-8;0;1;0;%2Fdm%2FdmKutt%2Fapp%2Ftests%2Fbarbery%2Fsrc%2Fclient.ktt;0;2
+FILE_NAME_3=1076;Kutt;0;EUTF-8;0;1;0;%2Fdm%2FdmKutt%2Fapp%2Ftests%2Fbarbery%2Fsrc%2Fshop.ktt;0;2
+FILE_NAME_4=443;Kutt;0;EUTF-8;0;1;0;%2Fdm%2FdmKutt%2Fapp%2Ftests%2Fbarbery%2Fsrc%2Fbarber.ktt;0;2
+FILE_NAME_5=114;Kutt;0;EUTF-8;0;1;0;%2Fdm%2FdmKutt%2Fapp%2Ftests%2Fbarbery%2Fsrc%2Fcts.ktt;0;2
+
+[editor]
+line_wrapping=false
+line_break_column=80
+auto_continue_multiline=false
+
+[VTE]
+last_dir=/home/deme/.local/share/Trash/files
+
+[prjorg]
+source_patterns=*.c;*.C;*.cpp;*.cxx;*.c++;*.cc;*.m;
+header_patterns=*.h;*.H;*.hpp;*.hxx;*.h++;*.hh;
+ignored_dirs_patterns=.*;CVS;
+ignored_file_patterns=*.o;*.obj;*.a;*.lib;*.so;*.dll;*.lo;*.la;*.class;*.jar;*.pyc;*.mo;*.gmo;
+generate_tag_prefs=0
+show_empty_dirs=true
+external_dirs=

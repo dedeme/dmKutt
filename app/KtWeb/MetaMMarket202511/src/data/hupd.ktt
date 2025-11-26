@@ -1,0 +1,49 @@
+// Copyright 04-Nov-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// System update data.
+
+import "libmkt/cts";
+import "libmkt/order";
+import "rebuy";
+import "pfEntry";
+
+(hupd) [. [(order)][(rebuy)][(pfEntry)][s]f[f]];
+
+/// Constructor.
+///   Orders     : Historic orders.
+///   Rebuys     : Current rebuys.
+///   Portfolio  : Current portfolio.
+///   Withdrawals: Withdrawals dates in format YYYYMMDD.
+///   cash       : Current cash.
+///   Historic   : Historic assets.
+//: [. [(order)][(rebuy)][(pfEntry)][s]f[f]]
+new : Orders, Rebuys, Portfolio, Withdrawals, cash, Historic;
+
+/// Constructor with fake values for initialization.
+//: [|(hupd)]
+newDefault = \ ->
+  return new([], [], [], [], 0.0, []);;
+
+//: [(hupd)|s]
+toJs = \o -> return js.wa([
+    arr.toJs(o[Orders], order.toJs),
+    arr.toJs(o[Rebuys], rebuy.toJs),
+    arr.toJs(o[Portfolio], pfEntry.toJs),
+    arr.toJs(o[Withdrawals], js.ws),
+    js.wf2(o[cash], 2),
+    arr.toJs(o[Historic], \n -> return js.wf2(n, 2);)
+  ]);;
+
+//: [s|(hupd)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    arr.fromJs(A[0], order.fromJs),
+    arr.fromJs(A[1], rebuy.fromJs),
+    arr.fromJs(A[2], pfEntry.fromJs),
+    arr.fromJs(A[3], js.rs),
+    js.rf(A[4]),
+    arr.fromJs(A[5], js.rf)
+  ];
+};

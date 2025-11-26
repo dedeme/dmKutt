@@ -1,0 +1,7 @@
+// Copyright 05-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Test test-system.
+
+//: [{s}|{s}]
+run = \Rq -> return {ok: js.wb(true)};;

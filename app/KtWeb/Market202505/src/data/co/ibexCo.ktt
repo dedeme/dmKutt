@@ -1,0 +1,32 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Ibex company data.
+
+/// Ibex company type
+(ibexCo) [. sbi];
+
+/// Constructor.
+///   nick  : Company nick.
+///   sel   : 'true' if it is selected to operate.
+///   stocks: Stocks to calculate index.
+///   pond  : Ponderation to calculate index.
+//: [. sbi]
+new : nick, sel, stocks;
+
+//: [(ibexCo)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[nick]),
+    js.wb(o[sel]),
+    js.wi(o[stocks])
+  ]);;
+
+//: [s|(ibexCo)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[nick]),
+    js.rb(A[sel]),
+    js.ri(A[stocks])
+  ];
+};

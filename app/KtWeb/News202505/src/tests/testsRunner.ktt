@@ -1,0 +1,13 @@
+// Copyright 26-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Application tests runner.
+
+import "splitTest";
+
+
+/// Runs tets.
+//: [|]
+run = \ -> {
+  splitTest.run();
+};

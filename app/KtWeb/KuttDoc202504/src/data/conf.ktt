@@ -1,0 +1,31 @@
+// Copyright 15-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Configuration data.
+
+(conf) [. sb];
+
+/// Constructor.
+///   spath  : Default source path.
+///   showAll: 'true' if all libraries should be shown.
+//: [. sb]
+new : spath, showAll;
+
+/// Default constructor.
+//: [|(conf)]
+newDefault = \ -> return new("@", true);;
+
+//: [(conf)|s]
+toJs = \o -> return js.wa([
+    js.ws(o.spath),
+    js.wb(o.showAll)
+  ]);;
+
+//: [s|(conf)]
+fromJs = \j -> {
+  a = js.ra(j);
+  return [.
+    js.rs(a[spath]),
+    js.rb(a[showAll])
+  ];
+};

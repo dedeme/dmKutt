@@ -1,0 +1,32 @@
+// Copyright 04-Sep-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Opportunity costs table entry.
+
+/// Opportuity costs table entry type
+(oppTbEntry) [. sff];
+
+/// Constructor.
+///   date : Entry date in format YYYYMMDD.
+///   buys : Buys profits.
+///   sales: Sales profits
+//: [. sff]
+new : date, buys, sales;
+
+//: [(oppTbEntry)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[date]),
+    js.wf2(o[buys], 2),
+    js.wf2(o[sales], 2)
+  ]);;
+
+//: [s|(oppTbEntry)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[date]),
+    js.rf(A[buys]),
+    js.rf(A[sales])
+  ];
+};
+

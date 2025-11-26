@@ -1,0 +1,13 @@
+// Copyright 27-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Quotes reader.
+
+import "libmkt/quotes";
+import "cts";
+
+/// Returns quotes of 'Cos'.
+//: [[s]|(quotes)]
+read = \Cos -> {
+  return quotes.read(cts.quotesPath, Cos);
+};

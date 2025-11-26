@@ -1,0 +1,41 @@
+// Copyright 06-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary page.
+
+import "libdm/svrp";
+import "libmkt/model";
+import "libmkt/cts" : mkCts;
+import "data/irs";
+import "data/irsTable";
+import "db/resultsDb";
+import "db";
+import "cts";
+import "fns";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      Rs = {}/[. [f]fi]/;
+      :arr Models = fns.modelList();
+      for (:model md = Models) {
+        mdId = md.id;
+        :irsTable tb = irsTable.fromJs(resultsDb.readLast(mdId));
+        :irs r = tb.best();
+        Rs.put(mdId, [. r.Params, r.yearAssets(), r.yearSales()]);
+      }
+      Results = Rs.toJs(\V -> return js.wa([
+          arr.toJs(V[0], js.wf),
+          js.wf(V[1]),
+          js.wi(V[2])
+        ]););
+      return svrp.mk({
+        Models : Models.toJs(fns.modelNoDocToJs),
+        Results
+      });
+    }
+  }
+  throw "Value of rq (" + rq + ") is not valid";
+};

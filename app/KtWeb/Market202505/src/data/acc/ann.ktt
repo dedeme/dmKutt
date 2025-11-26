@@ -1,0 +1,348 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Annotation data.
+
+import "data/broker";
+import "libmkt/cts" : mcts;
+import "cts";
+import "opr";
+import "settlement";
+import "ldg";
+import "pf";
+import "pfFx";
+
+/// Annotation type
+(ann) [. is(opr)];
+
+/// Constructor
+///   id  : Identifier. Must be set to -1. Its value will be reset when
+///         the annotation is added to its <annsTb>.
+///   date: Annotation date.
+///   op  : Operation annotated.
+//: [. is(opr)]
+new : id, date, op;
+
+//: [(ann)|s]
+toJs = \o -> return js.wa([
+      js.wi(o[id]),
+      js.ws(o[date])
+    ] +
+    js.ra(opr.toJs(o[op]))
+  );;
+
+//: [s|(ann)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.ri(A[id]),
+    js.rs(A[date]),
+    opr.fromJs(js.wa(A[op:]))
+  ];
+};
+
+/// Returns a ledger from 'As'.
+//: [[(ann)]|(settlement)]
+mkSettlement = \:arr As -> {
+  As.sort(\A1, A2 -> {
+    if (A1[date] == A2[date]) {
+      if (opr.type(A1[op]) == opr.buT) return true;
+      else if (opr.type(A2[op]) == opr.buT) return false;
+      return A1[id] < A2[id];
+    }
+    return A1[date] < A2[date];
+  });
+  :ldg l = ldg.new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+  Pf = {}/[. if]/;
+  PfFx = {}/i/;
+  Errs = []/s/;
+  for (A = As) {
+    :opr o = A[op];
+    switch (o.type()) {
+      opr.seT: {
+        nk = o.nick();
+        ss = o.stocks();
+        pr = o.price();
+        if (ss <= 0)
+          Errs.push(str.fmt(
+            "%v%v: Selling %v (<= 0) stocks", [. A[date], o.toStr(), ss]
+          ));
+        else if (pr < 0.0)
+          Errs.push(str.fmt(
+            "%v%v: Selling price %v (< 0)", [. A[date], o.toStr(), pr]
+          ));
+        else {
+          ssf = math.itof(ss);
+
+          // update portfolio
+          oldPrErr = pf.remove(Pf, nk, ss);
+
+          oldPr = oldPrErr[0];
+          err = oldPrErr[1];
+          if (err != "") Errs.push(A[date] + o.toStr() + ": " + err);
+          oldV = math.round(ssf * oldPr, 2);
+          v = math.round(ssf * pr, 2);
+          incomes = pr == -0.01 ? 0.0 : math.round(broker.sell(ss, pr), 2);
+
+          // update ledger
+          l.stocks -= oldV;
+          l.cash += incomes;
+          l.fees += v - incomes;
+          l.sales += oldV - v;
+        }
+      }
+      opr.buT: {
+        nk = o.nick();
+        ss = o.stocks();
+        pr = o.price();
+        if (ss <= 0)
+          Errs.push(str.fmt(
+            "%v%v:Bbuying %v (<= 0) stocks", [. A[date], o.toStr(), ss]
+          ));
+        else if (pr < 0.0)
+          Errs.push(str.fmt(
+            "%v%v: Buying price %v (< 0)", [. A[date], o.toStr(), pr]
+          ));
+        else {
+          // update portfolio
+          pf.add(Pf, nk, ss, pr);
+
+          v = math.round(math.itof(ss) * pr, 2);
+          cost = pr == -0.01 ? 0.0 : math.round(broker.buy(ss, pr), 2);
+
+          // update ledger
+          l.stocks += v;
+          l.cash -= cost;
+          l.fees += cost - v;
+        }
+      }
+      opr.stT: {
+        nk = o.nick();
+        ss = o.stocks();
+        pr = o.price();
+        v = math.round(math.itof(ss) * pr, 2);
+
+        // update portfolio
+        pf.add(Pf, nk, ss, pr);
+
+        // update ledger
+        l.stocks += v;
+        l.equity -= v;
+      }
+      opr.ofxT: {
+        id = o.id();
+        nm = o.nominal();
+        nmf = math.itof(nm);
+        pr = o.price();
+        fees = nmf * cts.fixedFeeds;
+
+        // update portfolio
+        pfFx.add(PfFx, id, nm);
+
+
+        // update ledger
+        l.cash -= pr;
+        l.fixed += nmf;
+        l.fees += fees;
+        l.margin += pr - fees - nmf;
+      }
+      opr.osfxT: {
+        id = o.id();
+        nm = o.nominal();
+        nmf = math.itof(nm);
+        pr = o.price();
+        fees = nmf * cts.fixedSFeeds;
+
+        // update portfolio
+        pfFx.add(PfFx, id, nm);
+
+
+        // update ledger
+        l.cash -= pr;
+        l.fixed += nmf;
+        l.fees += fees;
+        l.margin += pr - fees - nmf;
+      }
+      opr.cfxT: {
+        id = o.id();
+        nm = o.nominal();
+        nmf = math.itof(nm);
+        pr = o.price();
+        if (nm <= 0)
+          Errs.push(str.fmt(
+            "%v%v: Closing fixed income with negative nominal (%v)",
+            [. A[date], o.toStr(), nm]
+          ));
+        else if (pr < 0.0)
+          Errs.push(str.fmt(
+            "%v%v: Closing fixed income with negative price (%v)",
+            [. A[date], o.toStr(), pr]
+          ));
+        else {
+          // update portfolio
+          err = pfFx.remove(PfFx, id, nm);
+          if (err != "") Errs.push(A[date] + o.toStr() + ": " + err);
+
+          // update ledger
+          l.fixed -= nmf;
+          l.cash += pr;
+          l.fees += nmf - pr;
+        }
+      }
+      opr.stfxT: {
+        nk = o.nick();
+        nm = o.nominal();
+        nmf = math.itof(nm);
+
+        // update portfolio
+        pfFx.add(PfFx, nk, nm);
+
+        // update ledger
+        l.fixed += nmf;
+        l.equity -= nmf;
+      }
+      opr.inT: {
+        v = o.amount();
+
+        // update ledger
+        l.cash += v;
+        l.equity -= v;
+      }
+      opr.wiT: {
+        v = o.amount();
+
+        // update ledger
+        l.cash -= v;
+        l.equity += v;
+      }
+      opr.prT: {
+        v = o.amount();
+
+        // update ledger
+        l.cash += v;
+        l.profits -= v;
+      }
+      opr.prfxT: {
+        v = o.amount();
+
+        // update ledger
+        l.cash += v;
+        l.fxprofits -= v;
+      }
+      opr.feT: {
+        v = o.amount();
+
+        // update ledger
+        l.cash -= v;
+        l.fees += v;
+      }
+      opr.pdT: {
+        v = o.amount();
+
+        // update ledger
+        l.cash += v;
+        l.differences -= v;
+      }
+      opr.ndT: {
+        v = o.amount();
+
+        // update ledger
+        l.cash -= v;
+        l.differences += v;
+      }
+      default: Errs.push(str.fmt(
+        "Wrong annotation type in %v%v", [. A[date], o.toStr()]
+      ));
+    }
+  }
+
+  return settlement.new(l, Pf, PfFx, Errs);
+};
+
+/// Adds rebuys to previous data. {nick: date}
+///   Prev: Recorded rebuys. {nick: date}
+///   Anns: Only complete investor-year annotations.
+//: [{s}[(ann)]|]
+rebuys = \:dic Prev, :arr Anns -> {
+  today = time.toStr(time.now());
+
+  //: [si|s]
+  addDays = \dt, days ->
+    return time.toStr(time.addDays(time.fromStr(dt)!, days));;
+
+  //: [ss|]
+  put = \nk, dt -> {
+    if (dt < today) return;
+    oldOp = Prev.get(nk);
+    if (!oldOp) {
+      Prev.put(nk, dt);
+    } else {
+      if (dt > oldOp!) Prev[nk] = dt;
+    }
+  };
+
+  Pf = {}/[. if]/; // {nick: [stocks, price]}
+  for (A = Anns) {
+    :opr o = A[op];
+    switch (o.type()) {
+      opr.seT: {
+        dt = A[date];
+        nk = o.nick();
+        sts = o.stocks();
+        pr = o.price();
+        StPrOp = Pf.get(nk);
+        if (!StPrOp) {
+          put(nk, addDays(dt, cts.daysLoss7));
+        } else {
+          StPr = StPrOp!;
+          dif = StPr[0] - sts;
+          if (dif > 0) Pf[nk] = [. dif, StPr[1]];
+          else dic.remove(Pf, nk);
+          trapDate = pr < StPr[1] * mcts.noLossMultiplicator
+            ? addDays(dt, cts.daysLoss7)
+            : dt
+          ;
+          put(nk, trapDate);
+        }
+      }
+      opr.buT: {
+        nk = o.nick();
+        sts = o.stocks();
+        pr = o.price();
+        StPrOp = dic.get(Pf, nk);
+        if (!StPrOp) {
+          dic.put(Pf, nk, [. sts, pr]);
+        } else {
+          StPr = StPrOp!;
+          sum = sts + StPr[0];
+          newPr = (math.itof(sts) * pr + math.itof(StPr[0]) * StPr[1]) /
+            math.itof(sum)
+          ;
+          dic.put(Pf, nk, [. sum, newPr]);
+        }
+      }
+      opr.stT: {
+        dic.put(Pf, o.nick(), [. o.stocks(), o.price()]);
+      }
+      default: {}
+    }
+  }
+};
+
+/// Returns fixed incomes profits of 'anns'.
+//: [[(ann)] | f]
+fxProfits = \Anns -> {
+  fxPfV = [0.0];
+  for (a = Anns) {
+    :opr o = a[op];
+    tp = o.type();
+    value = switch (tp) {
+      opr.cfxT: o.price() - math.itof(o.nominal());
+      opr.ofxT, opr.osfxT: math.itof(o.nominal()) - o.price();
+      opr.prfxT: o.amount();
+      default: 0.0;
+    };
+    if (value != 0.0) fxPfV! += value;
+  }
+  return fxPfV!;
+};

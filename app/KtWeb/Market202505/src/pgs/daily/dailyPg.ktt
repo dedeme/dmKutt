@@ -1,0 +1,109 @@
+// Copyright 23-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Daily page.
+
+import "libdm/log";
+import "libmkt/cts" : mcts;
+import "libdm/svrp";
+import "data/chart/dailyChart";
+import "data/acc/ann";
+import "data/acc/settlement";
+import "data/acc/ldg";
+import "data/qsvs";
+import "data/qsv/qsv";
+import "data/activity";
+import "db/daily/dailyChartsTb";
+import "db/daily/cosSelTb";
+import "db/acc/diariesDb";
+import "db/acc/fxEquityTb";
+import "db/activityTb";
+import "db";
+import "sch";
+import "cts";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      CosData = []/(dailyChart)/;
+      IxsData = []/(dailyChart)/;
+      for (:dailyChart ch = dailyChartsTb.read()) {
+        if (arr.any([cts.meNick] + cts.ixNicks(), \n -> return ch.nick == n;))
+          IxsData.push(ch);
+        else CosData.push(ch);
+      }
+      IxsData.sort(\:dailyChart d1, :dailyChart d2 -> return
+        d1.nick == cts.meNick
+          ? true
+          : d1.nick == cts.ibexNick
+              ? d2.nick != cts.meNick
+              : false
+      ;);
+
+      for (:dailyChart ch = CosData) if (arr.size(ch.Hours) == 1) {
+        arr.push(ch.Hours, ch.Hours[0]);
+        arr.push(ch.Quotes, ch.Quotes[0]);
+      }
+      for (:dailyChart ch = IxsData) if (arr.size(ch.Hours) == 1) {
+        arr.push(ch.Hours, ch.Hours[0]);
+        arr.push(ch.Quotes, ch.Quotes[0]);
+      }
+
+      DicRebuys = {}/s/;
+      Ys = diariesDb.investorYears();
+      for (y = Ys[:2]) ann.rebuys(DicRebuys, diariesDb.investorAnns(y));
+
+      :qsv sv = qsvs.getCurrent();
+      serverName = sv.name;
+      :activity act = activityTb.read();
+      actId = act.actv;
+
+      Anns = !!Ys ? diariesDb.investorAnns(Ys[0]) : []/(ann)/;
+      :settlement set = ann.mkSettlement(Anns);
+      if (!!set.Errors) {
+        for (e = set.Errors) log.error(e);
+      }
+      cashV = [0.0];
+      fixedV = [0.0];
+      if (!!set.Errors) {
+        for (e = set.Errors) log.error(e);
+      } else {
+        :ldg l = set.ledger;
+        cashV! = l.cash;
+        fixedV! = l.fixed;
+      }
+
+      return svrp.mk({
+        dbKey: js.ws(db.readKey()),
+        CosData: CosData.toJs(dailyChart.toJs),
+        IxsData: IxsData.toJs(dailyChart.toJs),
+        CosSel: arr.toJs(cosSelTb.read(), js.ws),
+        Rebuys: arr.toJs(DicRebuys.keys(), js.ws),
+        serverName: js.ws(serverName),
+        "activity": js.ws(actId),
+        cash: js.wf2(cashV!, 2),
+        fixed: js.wf2(fixedV!, 2),
+        fxEquity: js.wi(fxEquityTb.read())
+      });
+    }
+    "reactivate": {
+      sch.dailyActivate();
+      return svrp.mkEmpty();
+    }
+    "setSelected": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      nick, isSel = [. js.rs(Rq\nick), js.rb(Rq\isSel)];
+      :arr CosSel = cosSelTb.read();
+      if (isSel) CosSel.push(nick);
+      else CosSel.filterIn(\n -> return n != nick;);
+
+      cosSelTb.write(CosSel);
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

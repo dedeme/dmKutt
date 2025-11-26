@@ -1,0 +1,56 @@
+// Copyright 13-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary page.
+
+import "libdm/svrp";
+import "libmkt/model";
+import "libmkt/models";
+import "data/irs";
+import "data/irsTable";
+import "db/resultsDb";
+import "db";
+import "cts";
+import "fns";
+
+//: [{s}|s]
+process = \:dic Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "models": {
+      :arr Models = fns.modelList();
+      :irs r = resultsDb.readBest(Models.map(\:model md -> return md.id;));
+      return svrp.mk({
+        Models : arr.toJs(Models, fns.modelNoDocToJs),
+        bestModel : fns.modelNoDocToJs(
+            Models.find(\:model md -> return md.id == r.mdId;)!
+          )
+      });
+    }
+    "values": {
+      mdId = js.rs(Rq\mdId);
+      period = js.rs(Rq\period);
+      i = js.ri(Rq\i);
+      Dates = arr.reverse(resultsDb.periodDates(mdId, period));
+      date = Dates[i];
+      :irsTable tb = irsTable.fromJs(resultsDb.read(mdId, period, date));
+      return svrp.mk({
+        date: js.ws(date),
+        Vals: arr.toJs(
+          arr.map(
+            tb.Irss,
+            \:irs r -> {
+              return [.
+                r.Params,
+                r.yearSales() < cts.minSales ? -1.0 : r.yearAssets()
+              ];
+            }
+          ),
+          \A -> return js.wa([arr.toJs(A[0], js.wf), js.wf(A[1])]);
+        )
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};
+

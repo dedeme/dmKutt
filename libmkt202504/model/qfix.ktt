@@ -1,0 +1,123 @@
+// Copyright 04-Apr-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Fix model.
+
+import "../model";
+import "doc/qfixDoc";
+
+/// Returns a new 'qfix' model.
+//: [|(model)]
+new = \ -> return model.new(
+    "QFIJO",
+    "Quantum fijo",
+    qfixDoc.text,
+    ["Salto"],
+    [model.percParam]
+  );;
+
+_
+//: [fff|f]
+downGap = \q, jmp, lgJmp ->
+  return math.pow(jmp, math.round(math.log(q)/lgJmp, 0) - 1.0);;
+_
+//: [fff|f]
+upGap = \q, jmp, lgJmp ->
+  return math.pow(jmp, math.round(math.log(q)/lgJmp, 0) + 1.0);;
+_
+//: [ffff|f]
+downGap2 = \q, ref, jmp, lgJmp -> {
+  ref2 = ref * jmp;
+  return ref2 * math.sqrt(jmp) >= q ? ref : downGap2(q, ref2, jmp, lgJmp);
+};
+_
+//: [ffff|f]
+upGap2 = \q, ref, jmp, lgJmp -> {
+  ref2 = ref / jmp;
+  return ref2 / math.sqrt(jmp) <= q ? ref : upGap2(q, ref2, jmp, lgJmp);
+};
+
+/// Returns a new [. isSold, reference, closes array] of one company,
+/// where:
+/// state -> is true if the company is not in stock.
+/// reference -> is the new company reference.
+/// closes -> Closes used for calculating references.
+///   Ref   : Reference data of previous calculus
+///           ([. isSold, reference, closes array]).
+///           'reference' is equals -1 when it is not fixed the initial one.
+///   cl    : Current close.
+///   Params: Model parameters.
+//: [[. bf[f]]f[f] | [. bf[f]]]
+ref = \Ref, cl, Params -> {
+  jmp = Params[0] + 1.0;
+  lgJmp = math.log(jmp);
+
+  isSold = Ref[0];
+  rf = Ref[1];
+  Cls = Ref[2];
+  if (rf < 0.0) return [.
+      false,
+      math.pow(jmp, math.round(math.log(cl)/lgJmp, 0) - 1.0) / jmp,
+      [cl]
+    ];
+
+  cl0 = Cls[0];
+  if (cl0 <= rf) {
+    if (cl < cl0) {
+      return [. true, upGap2(cl, rf, jmp, lgJmp), [cl]];
+    } else if (cl > rf) {
+      return [. false, downGap(cl, jmp, lgJmp), [cl]];
+    }
+  } else {
+    if (cl > cl0) {
+      return [. false, downGap2(cl, rf, jmp, lgJmp), [cl]];
+    } else if (cl < rf) {
+      return [. true, upGap(cl, jmp, lgJmp), [cl]];
+    }
+  }
+  return [. isSold, rf, [cl]];
+};
+
+//: [ [[f]][f] | [[f]] ]
+refs = \:arr Closes, :arr Params -> {
+  jmp = Params[0] + 1.0;
+  lgJmp = math.log(jmp);
+
+
+  :arr Cls0 = Closes[0];
+  ndates = Closes.size();
+  ncos = Cls0.size();
+
+  Refs = []/f/;
+  for (cl = Cls0)
+    Refs.push(math.pow(jmp, math.round(math.log(cl)/lgJmp, 0) - 1.0) / jmp);
+
+  Refs2 = Refs.copy();
+  AllRefs = arr.new(Refs2, ndates);
+  for (idate = 1:ndates) {
+    :arr ClosesR = Closes.get(idate);
+    :arr PrvCloses = Closes.get(idate - 1);
+
+    for (ico = 0:ncos) {
+      q0 = PrvCloses.get(ico);
+      ref = Refs.get(ico);
+      q = ClosesR.get(ico);
+
+      if (q0 <= ref) {
+        if (q < q0) {
+          Refs.set(ico, upGap2(q, ref, jmp, lgJmp));
+        } else if (q > ref) {
+          Refs.set(ico, downGap(q, jmp, lgJmp));
+        }
+      } else {
+        if (q > q0) {
+          Refs.set(ico, downGap2(q, ref, jmp, lgJmp));
+        } else if (q < ref) {
+          Refs.set(ico, upGap(q, jmp, lgJmp));
+        }
+      }
+    }
+    AllRefs.set(idate, Refs.copy());
+  }
+  return AllRefs;
+};

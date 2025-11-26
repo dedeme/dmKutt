@@ -1,0 +1,23 @@
+// Copyright 08-Sep-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Current fixed incomes value.
+
+/// Fixed income value type
+(currentFx) [. ssff];
+
+/// Constructor
+///   id   : Identifier.
+///   date: Expriation date.
+///   cost  : income cost.
+///   price : income current price.
+//: [. ssff]
+new : id, date, cost, price;
+
+//: [(currentFx)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[id]),
+    js.ws(o[date]),
+    js.wf2(o[cost], 2),
+    js.wf2(o[price], 2)
+  ]);;

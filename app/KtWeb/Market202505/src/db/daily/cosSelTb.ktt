@@ -1,0 +1,22 @@
+// Copyright 18-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Companies selected in daily charts.
+
+import "../dailyDb";
+
+_
+//: [|s]
+fpath = \ -> return file.cat(dailyDb.dpath(), ["cosSel.tb"]);;
+
+/// Initialize table.
+//: [|]
+init = \ -> if (!file.exists(fpath())) write([]);;
+
+/// Returns table.
+//: [|[s]]
+read = \ -> return arr.fromJs(file.read(fpath()), js.rs);;
+
+/// Write table.
+//: [[s]|]
+write = \:arr A -> file.write(fpath(), A.toJs(js.ws));;

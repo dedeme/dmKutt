@@ -1,0 +1,62 @@
+// Copyright 30-Mar-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Maps page.
+
+import "libdm/svrp";
+import "libmkt/models";
+import "libmkt/model";
+import "data/evE";
+import "data/upRs";
+import "db";
+import "cts";
+
+// Summary period types
+pCavg, pLast, pAvg =;
+
+//: [{s}|s]
+process = \:dic Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "values": {
+      mdId = js.rs(Rq\mdId);
+      period = js.rs(Rq\period);
+      ix = js.ri(Rq\i);
+      itype = js.ri(Rq\type);
+      isource = js.ri(Rq\vsource);
+
+      Vals = []/f/;
+      :arr Dates = db.dates(period);
+      dateV = [""];
+      if (Dates.size() > ix) {
+        date = Dates.reverse()[ix];
+        dateV! = date;
+        Es = db.read(period, date, mdId);
+        for (:evE e = Es) {
+          :upRs rs = itype == pCavg
+            ? e.crr
+            : itype == pLast
+              ? e.eval
+              : e.avg
+          ;
+          Vals.push(rs.sales < cts.minSales
+            ? -1.0
+            : switch (isource) {
+                upRs.sales: rs.sales;
+                upRs.real: rs.real;
+                upRs.acc: rs.acc;
+                upRs.prof: rs.prof;
+                default: rs.pon;
+              }
+          );
+        }
+      }
+
+      return svrp.mk({
+        Vals: arr.toJs(Vals, js.wf),
+        date: js.ws(dateV!)
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

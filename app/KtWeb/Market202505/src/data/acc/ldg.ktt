@@ -1,0 +1,36 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Ledger data.
+
+/// Ledger type
+(ldg) [. fffff fffff];
+
+/// Constructor.
+///   stocks     : + (assets)
+///   fixed      : + (assets)
+///   cash       : + (assets)
+///   equity     : - (liabilities)
+///   sales      : - (liabilities) sales profits is -, sales losses is +
+///   margin     : - (liabilities) fixed margin profits is -, fixed losses is +
+///   fees       : - (liabilities)
+///   profits    : - (liabilities)
+///   fxprofits  : - (liabilities)
+///   differences: - (liabilities)
+//: [. fffff fffff]
+new : stocks, fixed, cash, equity, sales, margin, fees,
+      profits, fxprofits, differences;
+
+//: [(ldg)|s]
+toJs = \o -> return js.wa([
+    js.wf(o[stocks]),
+    js.wf(o[fixed]),
+    js.wf(o[cash]),
+    js.wf(o[equity]),
+    js.wf(o[sales]),
+    js.wf(o[margin]),
+    js.wf(o[fees]),
+    js.wf(o[profits]),
+    js.wf(o[fxprofits]),
+    js.wf(o[differences])
+  ]);;

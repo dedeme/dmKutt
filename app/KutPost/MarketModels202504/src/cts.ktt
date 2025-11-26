@@ -1,0 +1,52 @@
+// Copyright 03-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Constants.
+
+/// Application name.
+appName = "MarketModelsT";
+/// Application version.
+version = "202504";
+/// Data version.
+dataVersion = "202504";
+/// Data file.
+
+//: [|s]
+dataPath = \->
+  return file.cat(sys.home(), [".dmKuttApp", "KutPost", appName]);;
+/// Results directory.
+//: [|s]
+resultsDir =  \-> return file.cat(dataPath(), ["results"]);;
+/// Ranks directory.
+//: [|s]
+ranksDir = \-> return file.cat(dataPath(), ["ranks"]);;
+/// Directory of historic quotes tables type 'NICK.tb'.
+/// s
+quotesPath = "/dm/KtWeb/dmcgi/Market/quotes";
+/// Steps number to calculate simulations
+/// i
+simulationSteps = 20;
+/// Minimum sales to compute results.
+/// i
+minSales = 40;
+
+// -----------------------------------------------------------------------------
+
+/// Number of global ranks.
+globalRanks = 5;
+/// Number of dates to calculate statistics.
+statDates = 24;
+/// Number of dates to save. (= (statDates + 1) * 2
+historicDates = 50;
+/// Period names.
+//: [|[s]]
+periods = \-> return ["daily", "weekly", "monthly"];;
+/// Values types.
+//: [|[s]]
+types = \-> return ["prices", "accs", "refs"];;
+/// Statistics names.
+//: [|[s]]
+stats = \-> return ["price", "average", "crrAverage", "deviation"];;
+/// Investor model base.
+/// s
+modelBase = "QFIJO"; //"SSBB0";

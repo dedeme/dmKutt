@@ -1,0 +1,127 @@
+// Copyright 05-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Evaluation table entry.
+
+import "upRs";
+import "../cts";
+
+/// Type of evaluation table entry.
+(evE) [. i(upRs)(upRs)(upRs)(upRs)];
+
+/// Constructor.
+///   times   : Number of historic evaluations
+///   eval    : Last evaluation.
+///   avg     : Evaluation average.
+///   dev     : Evaluation deviation.
+///   crr     : Evaluation corrected average.
+/// \i,<upRs>,<upRs>,<upRs>,<upRs> -> <evE>
+//: [. i(upRs)(upRs)(upRs)(upRs)]
+new0 : times, eval, avg, dev, crr;
+
+/// Constructor without corrected average.
+///   times   : Number of historic evaluations
+///   eval    : Last evaluation.
+///   avg     : Evaluation average.
+///   dev     : Deviation.
+//: [i(upRs)(upRs)(upRs)|(evE)]
+new = \times, eval, :upRs avg, :upRs dev ->
+  return new0(times, eval, avg, dev, upRs.new(
+    avg.sales - dev.sales, avg.real - dev.real,
+    avg.acc - dev.acc, avg.prof - dev.prof
+  ));;
+
+/// Constructor for first time.
+///   lst    : Last evaluation.
+//: [(upRs)|(evE)]
+newFirst = \lst -> return new(1, lst, lst, upRs.new(0.0, 0.0, 0.0, 0.0));;
+
+/// Constructor from previous evaluation.
+///   previous: Previous evE.
+///   lst     : Last evaluation.
+//: [(evE)(upRs)|(evE)]
+newUpdate = \previous, :upRs lst -> {
+  t0 = previous[times];
+  t1i = t0 >= cts.evalDays ? t0 : t0 + 1;
+  t1 = math.itof(t1i);
+  t = t1 - 1.0;
+
+  :upRs a = previous[avg];
+  :upRs d = previous[dev];
+  :upRs navg = upRs.new(
+    (a.sales * t + lst.sales) / t1,
+    (a.real * t + lst.real) / t1,
+    (a.acc * t + lst.acc) / t1,
+    (a.prof * t + lst.prof) / t1
+  );
+  ndev = upRs.new(
+    (d.sales * t + math.abs(lst.sales - navg.sales)) / t1,
+    (d.real * t + math.abs(lst.real - navg.real)) / t1,
+    (d.acc * t + math.abs(lst.acc - navg.acc)) / t1,
+    (d.prof * t + math.abs(lst.prof - navg.prof)) / t1
+  );
+
+  return new(t1i, lst, navg, ndev);
+};
+
+/// Constructor replacing previous evaluation.
+///   previous: Previous evE.
+///   lst     : Last evaluation.
+//: [(evE)(upRs)|(evE)]
+newReplace = \previous, :upRs lst -> {
+  ti = previous[times];
+  t = math.itof(ti);
+  :upRs e = previous[eval];
+  :upRs a = previous[avg];
+  :upRs d = previous[dev];
+  :upRs navg = upRs.new(
+    (a.sales * t - e.sales + lst.sales) / t,
+    (a.real * t - e.real + lst.real) / t,
+    (a.acc * t - e.acc + lst.acc) / t,
+    (a.prof * t - e.prof + lst.prof) / t
+  );
+  ndev = upRs.new(
+    ( d.sales * t +
+      math.abs(math.abs(e.sales - a.sales) - math.abs(lst.sales - navg.sales))
+     ) / t,
+    ( d.real * t +
+      math.abs(math.abs(e.real - a.real) - math.abs(lst.real - navg.real))
+     ) / t,
+    ( d.acc * t +
+      math.abs(math.abs(e.acc - a.acc) - math.abs(lst.acc - navg.acc))
+     ) / t,
+    ( d.prof * t +
+      math.abs(math.abs(e.prof - a.prof) - math.abs(lst.prof - navg.prof))
+     ) / t
+  );
+  return new(ti, lst, navg, ndev);
+};
+
+//: [(evE)|s]
+toJs = \o -> return js.wa([
+    js.wi(o[times]),
+    upRs.toJs(o[eval]),
+    upRs.toJs(o[avg]),
+    upRs.toJs(o[dev])
+  ]);;
+
+/// Serialization to send to javascript client
+//: [(evE)|s]
+toJsClient = \o -> return js.wa([
+    js.wi(o[times]),
+    upRs.toJsClient(o[eval]),
+    upRs.toJsClient(o[avg]),
+    upRs.toJsClient(o[dev]),
+    upRs.toJsClient(o[crr])
+  ]);;
+
+//: [s|(evE)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return new(
+    js.ri(A[times]),
+    upRs.fromJs(A[eval]),
+    upRs.fromJs(A[avg]),
+    upRs.fromJs(A[dev])
+  );
+};

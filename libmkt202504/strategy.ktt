@@ -1,0 +1,540 @@
+// Copyright 07-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Trading strategy
+
+import "order";
+import "model";
+import "quotes";
+import "stRs";
+import "cts";
+import "broker";
+
+/// Returns the result of a simulation.
+///   md      : Model.
+///   qs      : Quotes to perform the simulation.
+///   References: Companies references (days x cos).
+//: [(model)(quotes)[[f]]|(stRs)]
+open = \:model md, :quotes qts, :arr References -> {
+  ndates = arr.size(qts.Dates);
+  ncos = arr.size(qts.Cos);
+
+  // Global simulation.
+
+  cashV = [. cts.initialCapital];
+  withdrawalsV = [. 0.0];
+  Orders = []/(order)/;
+  Hreals = arr.new(0.0, ndates);
+  Haccs = arr.new(0.0, ndates);
+  Hrefs = arr.new(0.0, ndates);
+  Hwithdrawals = arr.new(0.0, ndates);
+
+  Stocks = arr.new(0, ncos);
+  Prices = arr.new(0.0, ncos);
+  ToDos = arr.new(false, ncos);
+  ToSells = arr.new(true, ncos);
+  DaysTraps = arr.new(0, ncos);
+
+  // Profits simulation.
+
+  AllBuys = []/[s]/;
+  for (i = 0:ncos) AllBuys.push([]/s/);
+  AllSales = []/[s]/;
+  for (i = 0:ncos) AllSales.push([]/s/);
+  PrfCashes = arr.new(cts.bet, ncos);
+  PrfStocks = arr.new(0, ncos);
+  PrfPrices = arr.new(0.0, ncos);
+  PrfDaysTraps = arr.new(0, ncos);
+  Profits = arr.new(0.0, ncos);
+
+  // START -----------------------------
+
+  purchasedV = [0];
+  maxToBuyV = [cts.maxCos];
+  Hreals[0] = cashV!;
+  Haccs[0] = cashV!;
+  Hrefs[0] = cashV!;
+  for (idate = 1:ndates) {
+    dayCashV = [cashV!];
+    date = qts.Dates[idate];
+    Ops = qts.Opens[idate];
+    Cls = qts.Closes[idate];
+    Rfs = References[idate - 1];
+
+    maxToBuyV! = cts.maxCos - purchasedV!;
+    for (ico = 0:ncos) if (ToDos[ico] & !ToSells[ico] & Stocks[ico] > 0)
+      maxToBuyV! += 1;
+    realV = [0.0];
+    accV = [0.0];
+    refV = [0.0];
+    for (ico = 0:ncos) {
+      nk = qts.Cos[ico];
+      :arr Buys = AllBuys[ico];
+      :arr Sales = AllSales[ico];
+      op = Ops[ico];
+      cl = Cls[ico];
+      rf = Rfs[ico];
+
+      DaysTraps[ico] -= 1;
+      PrfDaysTraps[ico] -= 1;
+
+      if (ToDos[ico]) {
+        if (ToSells[ico]) { // there is buy order.
+          // Global simulation.
+          if (DaysTraps[ico] < 1) {
+            if (dayCashV! > cts.minToBet & maxToBuyV! > 0) {
+              stocks = math.ftoi(cts.bet / op);
+              Stocks[ico] = stocks;
+              Prices[ico] = op;
+              bk = broker.buy(stocks, op);
+              cashV! -= bk;
+              dayCashV! -= bk;
+              Orders.push(order.new(date, nk, cts.orderBuy, stocks, op));
+              purchasedV! += 1;
+              maxToBuyV! -= 1;
+            }
+          }
+          // Profits simulation.
+          if (PrfDaysTraps[ico] < 1) {
+            prfCash = PrfCashes[ico];
+            stocksV = [math.ftoi((prfCash - broker.buyFees(prfCash)) / op)];
+            costV = [broker.buy(stocksV!, op)];
+            while (costV! > prfCash) {
+              stocksV! -= 1;
+              costV! = broker.buy(stocksV!, op);
+            }
+            PrfStocks[ico] = stocksV!;
+            PrfPrices[ico] = op;
+            PrfCashes[ico] = prfCash - costV!;
+            Buys.push(date);
+          }
+        } else {
+          // Global simulation.
+          stocks = Stocks[ico];
+          if (stocks > 0) {
+            Stocks[ico] = 0;
+            cashV! += broker.sell(stocks, op);
+            Orders.push(order.new(date, nk, cts.orderSell, stocks, op));
+            purchasedV! -= 1;
+
+            if (op < Prices[ico] * cts.noLossMultiplicator)
+              DaysTraps[ico] = cts.daysLoss;
+          }
+          // Profits simulation.
+          pstocks = PrfStocks[ico];
+          if (pstocks > 0) {
+            PrfStocks[ico] = 0;
+            PrfCashes[ico] += broker.sell(pstocks, op);
+            Sales.push(date);
+
+            if (op < PrfPrices[ico] * cts.noLossMultiplicator)
+              PrfDaysTraps[ico] = cts.daysLoss;
+          }
+        }
+        ToDos[ico] = false;
+      }
+      stocks = Stocks[ico];
+      if (stocks > 0) {
+        realV! += broker.sell(stocks, cl);
+        accV! += broker.sell(stocks, Prices[ico]);
+        refV! += broker.sell(stocks, rf < cl ? rf : cl);
+      }
+
+
+      if (ToSells[ico]) {
+        if (rf > cl) {
+          ToDos[ico] = true;
+          ToSells[ico] = false;
+        }
+      } else if (rf < cl) {
+        ToDos[ico] = true;
+        ToSells[ico] = true;
+      }
+    }
+
+    total = cashV! + realV!;
+    if (total > cts.withdrawalLimit & cashV! > cts.minToBet) {
+      withdrawalsV! += cts.bet;
+      cashV! -= cts.bet;
+    }
+
+    Hreals[idate] = cashV! + withdrawalsV! + realV!;
+    Haccs[idate] = cashV! + withdrawalsV! + accV!;
+    Hrefs[idate] = cashV! + withdrawalsV! + refV!;
+    Hwithdrawals[idate] = withdrawalsV!;
+  }
+
+  LastCloses = qts.Closes[ndates - 1];
+  for (i = 0:ncos) {
+    Profits[i] =
+      (PrfCashes[i] + math.itof(PrfStocks[i]) * LastCloses[i] - cts.bet) / cts.bet;
+  }
+
+  return stRs.new(
+    Orders, Hreals, Haccs, Hrefs, Hwithdrawals, cashV! + withdrawalsV!,
+    AllBuys, AllSales, Profits
+  );
+};
+
+/// Returns the result of a simulation.
+/// Returns the the following 'dic'.
+///   - sales (n)   : Number of sales.
+///   - assets (n)  : cash + withdrawals + portfolio evaluated with closes.
+///   - accs (n)    : cash + withdrawals + portfolio evaluated with prices.
+///   - rfAssets (n): cash + withdrawals + portfolio evaluated with references.
+///   md        : Model.
+///   qts       : Quotes to perform the simulation.
+///   References: Companies references (days x cos).
+//: [(model)(quotes)[[f]] | {f}]
+openSimple = \:model md, :quotes qts, :arr References -> {
+  ndates = arr.size(qts.Dates);
+  ncos = arr.size(qts.Cos);
+  :arr Opens = qts.Opens;
+  :arr Closes = qts.Closes;
+
+  // Global simulation.
+
+  cashV = [. cts.initialCapital];
+  withdrawalsV = [. 0.0];
+  nsalesV = [. 0];
+
+  Stocks = arr.new(0, ncos);
+  Prices = arr.new(0.0, ncos);
+  ToDos = arr.new(false, ncos);
+  ToSells = arr.new(true, ncos);
+  DaysTraps = arr.new(0, ncos);
+
+  // START -----------------------------
+
+  purchasedV = [0];
+  for (idate = 1:ndates) {
+    dayCashV = [. cashV!];
+    Ops = Opens.get(idate);
+    Cls = Closes.get(idate);
+    Rfs = References.get(idate - 1);
+
+    assetsV = [. 0.0];
+    for (ico = 0:ncos) {
+      op = Ops.get(ico);
+      cl = Cls.get(ico);
+      rf = Rfs.get(ico);
+
+      DaysTraps.set(ico, DaysTraps.get(ico) - 1);
+
+      if (ToDos.get(ico)) {
+        if (ToSells.get(ico)) { // there is buy order.
+          // Global simulation.
+          if (DaysTraps.get(ico) < 1) {
+            if (dayCashV! > cts.minToBet & purchasedV! < cts.maxCos) {
+              stocks = math.ftoi(cts.bet / op);
+              Stocks.set(ico, stocks);
+              Prices.set(ico, op);
+              bk = broker.buy(stocks, op);
+              cashV! -= bk;
+              dayCashV! -= bk;
+              purchasedV! += 1;
+            }
+          }
+        } else {
+          // Global simulation.
+          stocks = Stocks.get(ico);
+          if (stocks > 0) {
+            Stocks.set(ico, 0);
+            cashV! += broker.sell(stocks, op);
+            nsalesV! += 1;
+            purchasedV! -= 1;
+
+            if (op < Prices.get(ico) * cts.noLossMultiplicator)
+              DaysTraps.set(ico, cts.daysLoss);
+          }
+        }
+        ToDos.set(ico, false);
+      }
+      stocks = Stocks.get(ico);
+      if (stocks > 0) assetsV! += broker.sell(stocks, cl);
+
+      if (ToSells.get(ico)) {
+        if (rf > cl) {
+          ToDos.set(ico, true);
+          ToSells.set(ico, false);
+        }
+      } else if (rf < cl) {
+        ToDos.set(ico, true);
+        ToSells.set(ico, true);
+      }
+    }
+
+    total = cashV! + assetsV!;
+    if (total > cts.withdrawalLimit & cashV! > cts.minToBet) {
+      withdrawalsV! += cts.bet;
+      cashV! -= cts.bet;
+    }
+  }
+
+  // Global simulation.
+  cashV! += withdrawalsV!;
+  assetsV = [. cashV!];
+  accsV = [. cashV!];
+  rfAssetsV = [. cashV!];
+  LastCls = Closes.get(ndates - 1);
+  LastRfs = References.get(ndates - 1);
+  for (i = 0:ncos) {
+    stk = Stocks.get(i);
+    cl = LastCls.get(i);
+    rf = LastRfs.get(i);
+    if (stk > 0) {
+      assetsV! += broker.sell(stk, cl);
+      accsV! += broker.sell(stk, Prices.get(i));
+      rfAssetsV! += broker.sell(stk, rf < cl ? rf : cl);
+    }
+  }
+
+  return {
+      sales: math.itof(nsalesV!), assets: assetsV!,
+      accs: accsV!, rfAssets: rfAssetsV!
+  };
+};
+
+/// Returns the the following 'dic'.
+///   - sales (n)    : Number of sales.
+///   - assets (n)   : cash + withdrawals + portfolio evaluated with closes.
+///   - accs (n)     : cash + withdrawals + portfolio evaluated with prices.
+///   - refAssets (n): cash + withdrawals + portfolio evaluated with references.
+///   - profits (n)  : Profits ratio average. Portfolio evaluated with closes.
+///   - rfProfits (n): Profits ratio average. Portfolio evaluated with references.
+///   md        : Model.
+///   qts       : Quotes to perform the simulation.
+///   References: Companies references (days x cos).
+//: [(model)(quotes)[[f]] | {f}]
+openSimple2 = \:model md, :quotes qts, :arr References -> {
+  :arr Opens = qts.Opens;
+  :arr Closes = qts.Closes;
+  ndates = arr.size(qts.Dates);
+  ncos = arr.size(qts.Cos);
+
+  // Global simulation.
+
+  cashV = [. cts.initialCapital];
+  withdrawalsV = [. 0.0];
+  nsalesV = [. 0];
+
+  Stocks = arr.new(0, ncos);
+  Prices = arr.new(0.0, ncos);
+  ToDos = arr.new(false, ncos);
+  ToSells = arr.new(true, ncos);
+  DaysTraps = arr.new(0, ncos);
+
+  // Profits simulation.
+
+  PrfCashes = arr.new(cts.bet, ncos);
+  PrfStocks = arr.new(0, ncos);
+  PrfPrices = arr.new(0.0, ncos);
+  PrfDaysTraps = arr.new(0, ncos);
+
+  // START -----------------------------
+
+  purchasedV = [0];
+  for (idate = 1:ndates) {
+    dayCashV = [. cashV!];
+    Ops = Opens.get(idate);
+    Cls = Closes.get(idate);
+    Rfs = References.get(idate - 1);
+
+    assetsV = [. 0.0];
+    for (ico = 0:ncos) {
+      op = Ops.get(ico);
+      cl = Cls.get(ico);
+      rf = Rfs.get(ico);
+
+      DaysTraps.set(ico, DaysTraps.get(ico) - 1);
+      PrfDaysTraps.set(ico, PrfDaysTraps.get(ico) - 1);
+
+      if (ToDos.get(ico)) {
+        if (ToSells.get(ico)) { // there is buy order.
+          // Global simulation.
+          if (DaysTraps.get(ico) < 1) {
+            if (dayCashV! > cts.minToBet & purchasedV! < cts.maxCos) {
+              stocks = math.ftoi(cts.bet / op);
+              Stocks.set(ico, stocks);
+              Prices.set(ico, op);
+              bk = broker.buy(stocks, op);
+              cashV! -= bk;
+              dayCashV! -= bk;
+              purchasedV! += 1;
+            }
+          }
+          // Profits simulation.
+          if (PrfDaysTraps.get(ico) < 1) {
+            prfCash = PrfCashes.get(ico);
+            stocksV = [. math.ftoi((prfCash - broker.buyFees(prfCash)) / op)];
+            costV = [. broker.buy(stocksV!, op)];
+            while (costV! > prfCash) {
+              stocksV! -= 1;
+              costV! = broker.buy(stocksV!, op);
+            }
+            PrfStocks.set(ico, stocksV!);
+            PrfPrices.set(ico, op);
+            PrfCashes.set(ico, prfCash - costV!);
+          }
+        } else {
+          // Global simulation.
+          stocks = Stocks.get(ico);
+          if (stocks > 0) {
+            Stocks.set(ico, 0);
+            cashV! += broker.sell(stocks, op);
+            nsalesV! += 1;
+            purchasedV! -= 1;
+
+            if (op < Prices.get(ico) * cts.noLossMultiplicator)
+              DaysTraps.set(ico, cts.daysLoss);
+          }
+          // Profits simulation.
+          pstocks = PrfStocks.get(ico);
+          if (pstocks > 0) {
+            PrfStocks.set(ico, 0);
+            PrfCashes.set(ico, PrfCashes.get(ico) + broker.sell(pstocks, op));
+
+            if (op < PrfPrices.get(ico) * cts.noLossMultiplicator)
+              PrfDaysTraps.set(ico, cts.daysLoss);
+          }
+        }
+        ToDos.set(ico, false);
+      }
+      stocks = Stocks.get(ico);
+      if (stocks > 0) assetsV! += broker.sell(stocks, cl);
+
+      if (ToSells.get(ico)) {
+        if (rf > cl) {
+          ToDos.set(ico, true);
+          ToSells.set(ico, false);
+        }
+      } else if (rf < cl) {
+        ToDos.set(ico, true);
+        ToSells.set(ico, true);
+      }
+    }
+
+    total = cashV! + assetsV!;
+    if (total > cts.withdrawalLimit & cashV! > cts.minToBet) {
+      withdrawalsV! += cts.bet;
+      cashV! -= cts.bet;
+    }
+  }
+
+  // Global simulation.
+  cashV! += withdrawalsV!;
+  assetsV = [. cashV!];
+  accsV = [. cashV!];
+  rfAssetsV = [. cashV!];
+  LastCls = Closes.get(ndates - 1);
+  LastRfs = References.get(ndates - 1);
+  for (i = 0:ncos) {
+    stk = Stocks.get(i);
+    cl = LastCls.get(i);
+    rf = LastRfs.get(i);
+    if (stk > 0) {
+      assetsV! += broker.sell(stk, cl);
+      accsV! += broker.sell(stk, Prices.get(i));
+      rfAssetsV! += broker.sell(stk, rf < cl ? rf : cl);
+    }
+  }
+
+  // Profits simulation.
+  profitsV = [. 0.0];
+  rfProfitsV = [. 0.0];
+  for (i = 0:ncos) {
+    prfCash = PrfCashes.get(i);
+    stk = PrfStocks.get(i);
+    cl = LastCls.get(i);
+    rf = LastRfs.get(i);
+    profitsV! += (prfCash + (stk > 0 ? math.itof(stk) * cl : 0.0) - cts.bet) / cts.bet;
+    rfProfitsV! += (
+      prfCash + (
+        stk > 0
+        ? math.itof(stk) * (rf < cl ? rf : cl)
+        : 0.0
+      ) - cts.bet) / cts.bet
+    ;
+  }
+
+  return {
+      sales: math.itof(nsalesV!), assets: assetsV!, accs: accsV!,
+      rfAssets: rfAssetsV!,
+      profits: profitsV! / math.itof(ncos),
+      rfProfits: rfProfitsV! / math.itof(ncos)
+  };
+};
+
+/// Returns the result of a simulation.
+/// Returns the the following 'dic'.
+///   - Sales ([n.])   : Number of sales.
+///                      One entry for each Parameter in the same order.
+///   - Assets ([n.])  : cash + withdrawals + portfolio evaluated with closes.
+///                      One entry for each Parameter in the same order.
+///   - Accs ([n.])     : cash + withdrawals + portfolio evaluated with prices.
+///                      One entry for each Parameter in the same order.
+///   - RfAssets ([n.]): cash + withdrawals + portfolio evaluated with references.
+///                      One entry for each Parameter in the same order.
+///   md      : Model.
+///   qs      : Quotes to perform the simulation.
+///   Params  : Array of model parameters.
+//: [(model)(quotes)[[f]] | {[f]} ]
+stGroup = \:model md, :quotes qts, :arr Params -> {
+  n = Params.size();
+  Sales = arr.new(0.0, n);
+  Assets = arr.new(0.0, n);
+  Accs = arr.new(0.0, n);
+  RfAssets = arr.new(0.0, n);
+
+  for (i = 0:n) {
+    References = md.refs(qts.Closes, Params.get(i));
+    Rs = openSimple(md, qts, References);
+    Sales.set(i, Rs\sales);
+    Assets.set(i, Rs\assets);
+    Accs.set(i, Rs\accs);
+    RfAssets.set(i, Rs\rfAssets);
+  }
+
+  return {Sales, Assets, Accs, RfAssets};
+};
+
+/// Returns the result of a simulation.
+/// Returns the the following 'dic'.
+///   - Sales ([n.])    : Number of sales.
+///                       One entry for each Parameter in the same order.
+///   - Assets ([n.])   : cash + withdrawals + portfolio evaluated with closes.
+///                       One entry for each Parameter in the same order.
+///   - Accs ([n.])     : cash + withdrawals + portfolio evaluated with prices.
+///                      One entry for each Parameter in the same order.
+///   - RfAssets ([n.]) : cash + withdrawals + portfolio evaluated with references.
+///                       One entry for each Parameter in the same order.
+///   - Profits ([n.])  : Profits ratio average. Portfolio evaluated with Closes.
+///                       One entry for each Parameter in the same order.
+///   - RfProfits ([n.]): Profits ratio average. Portfolio evaluated with references.
+///                       One entry for each Parameter in the same order.
+///   md      : Model.
+///   qs      : Quotes to perform the simulation.
+///   Params  : Array of model parameters.
+//: [(model)(quotes)[[f]] | {[f]} ]
+stGroup2 = \:model md, :quotes qts, :arr Params -> {
+  n = Params.size();
+  Sales = arr.new(0.0, n);
+  Assets = arr.new(0.0, n);
+  Accs = arr.new(0.0, n);
+  RfAssets = arr.new(0.0, n);
+  Profits = arr.new(0.0, n);
+  RfProfits = arr.new(0.0, n);
+
+  for (i = 0:n) {
+    References = md.refs(qts.Closes, Params[i]);
+    Rs = openSimple2(md, qts, References);
+    Sales[i] = Rs\sales;
+    Assets[i] = Rs\assets;
+    Accs[i] = Rs\accs;
+    RfAssets[i] = Rs\rfAssets;
+    Profits[i] = Rs\profits;
+    RfProfits[i] = Rs\rfProfits;
+  }
+  return {Sales, Assets, Accs, RfAssets, Profits, RfProfits};
+};
+

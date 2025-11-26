@@ -1,0 +1,91 @@
+// Copyright 23-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Reader of indices data.
+
+import "data/qsv/qsv";
+import "data/qsv/historicQ";
+
+/// Returns historic quotes of IBEX in a Result [. quotes, warnings]
+//: [|[. [[. [(historicQ)][s]]]s]]
+ibexHistoric = \ -> {
+  rOp, err = qsv.rq({
+    rq: js.ws("ixs"),
+    sv: js.ws("IBEX")
+  });
+  if (err != "")
+    return [. []/[. [(historicQ)][s]]/, "Fail reading 'Ibex Historic'\n" + err];
+
+  A = js.ra(rOp!);
+  ok = js.rb(A[1]);
+  if (!ok)
+    return [.
+      []/[. [(historicQ)][s]]/,
+      "Fail reading 'Ibex Historic'\n" + js.rs(A[0])
+    ];
+
+  QWs = js.ro(A[0]);
+  Qs = arr.fromJs(QWs\Qs,historicQ.fromJs);
+  Ws = arr.fromJs(QWs\Ws, js.rs);
+
+  return [. [[. Qs, Ws]], ""];
+};
+
+/// Returns nicks of IBEX components in a Result [. server, companies, warnings].
+//: [|[. [[. s[s][s]]]s]]
+ibexCos = \ -> {
+  rOp, err = qsv.rq({
+    rq: js.ws("ixs"),
+    sv: js.ws("IBEX_COS")
+  });
+  if (err != "")
+    return [. []/[. s[s][s]]/, "Fail reading 'Ibex Companies'\n" + err];
+
+  R = js.ra(rOp!);
+  ok = js.rb(R[1]);
+  if (!ok)
+    return [.
+      []/[. s[s][s]]/,
+      "Fail reading 'Ibex Companies'\n" + js.rs(R[0])
+    ];
+
+  SCWs = js.ro(R[0]);
+  sv = js.rs(SCWs\sv);
+  Cs = arr.fromJs(SCWs\Cs, js.rs);
+  Ws = arr.fromJs(SCWs\Ws, js.rs);
+
+  return [. [[. sv, Cs, Ws]], ""];
+};
+
+/// Returns current quotes of ibex and euro indexes in a Result
+/// [. ibexQuotes, euroQuotes, warnings]
+/// ImbexQuotes and euroQuotes are pairs [. tick, open]
+//: [|[. [[. [. ff][. ff][s]]]s]]
+ixs = \ -> {
+  rOp, err = qsv.rq({
+    rq: js.ws("ixs"),
+    sv: js.ws("IXS")
+  });
+  if (err != "")
+    return [.
+      []/[. [. ff][. ff][s]]/,
+      "Fail reading 'Ibex-Euro current quotes'\n" + err
+    ];
+
+  R = js.ra(rOp!);
+  ok = js.rb(R[1]);
+  if (!ok)
+    return [.
+      []/[. [. ff][. ff][s]]/,
+      "Fail reading 'Ibex-Euro current quotes'\n" + js.rs(R[0])
+    ];
+
+  IEWs = js.ro(R[0]);
+  IbexA = js.ra(IEWs\Ibex);
+  Ibex = [. js.rf(IbexA[0]), js.rf(IbexA[1])];
+  EuroA = js.ra(IEWs\Euro);
+  Euro = [. js.rf(EuroA[0]), js.rf(EuroA[1])];
+  Ws = arr.fromJs(IEWs\Ws, js.rs);
+
+  return [. [[. Ibex, Euro, Ws]], ""];
+};

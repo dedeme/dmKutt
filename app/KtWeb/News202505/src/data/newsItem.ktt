@@ -1,0 +1,58 @@
+// Copyright 26-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// News item data
+
+import "newsi";
+
+/// News item type
+(newsItem) [. isss[s]sss];
+
+/// News groups enumeration:
+/// (N)ational, (I)nternational, (E)conomy, (S)ports, (O)thers.
+N, I, E, S, O =:;
+
+/// Constructor
+///   id     : (MUTABLE) Identifier. Must be set to '-1' and updated when
+///            the news item is added to its data table.
+///   date   : Date in format YYYYMMDD.
+///   source : Mass media of origin.
+///   group  : News group (one of N, I, E, S or O).
+///   authors: Writers (it can be empty).
+///   title  : Title.
+///   summary: Summary (it can be empty).
+///   img: Image link (it can be empty).
+//: [. isss[s]sss]
+new : id, date, source, group, authors, title, summary, img;
+
+/// Returns 'true' if source and title are equals.
+//: [(newsItem)(newsItem)|b]
+eq = \n1, n2 -> return n1[source] == n2[source] & n1[title] == n2[title];;
+
+//: [(newsItem)|s]
+toJs = \o -> return js.wa([
+    js.wi(o[id]),
+    js.ws(o[date]),
+    js.ws(o[source]),
+    js.ws(o[group]),
+    arr.toJs(o[authors], js.ws),
+    js.ws(o[title]),
+    js.ws(o[summary]),
+    js.ws(o[img])
+  ]);;
+
+//: [s|(newsItem)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.ri(A[id]),
+    js.rs(A[date]),
+    js.rs(A[source]),
+    js.rs(A[group]),
+    arr.fromJs(A[authors], js.rs),
+    js.rs(A[title]),
+    js.rs(A[summary]),
+    js.rs(A[img])
+  ];
+};
+

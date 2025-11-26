@@ -1,0 +1,97 @@
+// Copyright 13-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Global rankings page.
+
+import "libmkt/models";
+import "libmkt/model";
+import "libmkt/cts" : mcts;
+import "data/simParams";
+import "data/imodel";
+import "data/vals";
+import "fns";
+import "cts";
+import "db";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      return js.wo({
+        "Models": arr.toJs(arr.map(models.list(), \:model md -> {
+            mdId = md.id;
+            bases = simParams.paramBases(mdId);
+            incrs = simParams.paramIncrs(mdId);
+            return imodel.new(
+              mdId, md.name,
+              md.ParamNames, md.ParamTypes, bases, incrs
+            );
+          }), imodel.toJs)
+      });
+    }
+    "rank": {
+      mdId, i, valType, stats, period =
+        [. js.rs(Rq\mdId), js.ri(Rq\ix), js.rs(Rq\valType),
+           js.rs(Rq\stats), js.rs(Rq\period)];
+      :vals rss = db.readResults(
+        mdId, period, valType, i, stats == "price" ? 1 : cts.statDates
+      );
+      if (arr.size(rss.Vals) > 0) {
+        return js.wo({
+          "rankOp": stats == "price"
+            ? js.wa([js.wa([js.ws(rss.date), arr.toJs(rss.Vals[0], js.wi)])])
+            : js.wa([js.wa([
+                js.ws(rss.date), arr.toJs(fns.stats(stats, rss.Vals), js.wi)
+              ])])
+          });
+      } else {
+        return js.wo({"rankOp": js.wa([]/s/)});
+      }
+    }
+    "bests": {
+      mdId, valType, stats, period =
+       [. js.rs(Rq\mdId), js.rs(Rq\valType), js.rs(Rq\stats), js.rs(Rq\period)];
+      :vals rss = db.readResults(
+        mdId, period, valType, 0, stats == "price" ? 1 : cts.statDates
+      );
+      :arr Vals = rss.Vals;
+      if (Vals.size() > 0) {
+        :arr Vs = stats == "price" ? Vals[0] : fns.stats(stats, Vals);
+        :arr BestsVs = arr.zip(arr.fromIter([! 0,Vs.size()]), Vs);
+        BestsVs.sort(\E1, E2 -> return E1[1] > E2[1];);
+        return js.wo({
+          "Bests": arr.toJs(arr.map(BestsVs.take(3), \E -> return E[0];), js.wi)
+        });
+      } else {
+        return js.wo({"Bests": js.wa([]/s/)});
+      }
+    }
+    "history": {
+      mdId, iRs, valType, stats, period =
+        [. js.rs(Rq\mdId), js.ri(Rq\iRs), js.rs(Rq\valType),
+           js.rs(Rq\stats), js.rs(Rq\period)];
+
+      Profits = []/i/;
+      Positions = []/i/;
+      for (i = cts.statDates - 1 : 0 : -1) {
+        :vals rss = db.readResults(
+          mdId, period, valType, i, stats == "price" ? 1 : cts.statDates
+        );
+        :arr Vals = rss.Vals;
+        if (Vals.size() > 0) {
+          Vs = stats == "price" ? Vals[0] : fns.stats(stats, Vals);
+          e0 = Vs[iRs];
+          if (e0 < 0) continue;
+          prf = e0 - math.ftoi(mcts.initialCapital);
+          pV = [1];
+          for (e = Vs) if (e > e0) pV! += 1;
+          Profits.push(prf);
+          Positions.push(pV!);
+        }
+      }
+      return dic.toJs({Profits, Positions}, \:arr ai -> return ai.toJs(js.wi););
+    }
+  }
+  throw "Value of rq (" + rq + ") is not valid";
+};

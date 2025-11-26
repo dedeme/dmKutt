@@ -1,0 +1,87 @@
+// Copyright 22-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Nicks main page.
+
+import "libdm/svrp";
+import "libdm/log";
+import "libmkt/qs";
+import "libmkt/quote";
+import "db/quotesDb";
+import "db/cosTb";
+import "data/co/cos";
+import "data/co/co";
+import "qspr";
+import "db";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      :cos cs = cosTb.read();
+      Cos = arr.map(cs.Cos, \:co c -> return c.nick;);
+      // {co:vol}
+      Volumes = {}/f/;
+      // [f.]
+      Vols = quotesDb.readVolumes(Cos);
+      for (Tp = arr.zip(Cos, Vols)) Volumes.put(Tp[0], Tp[1]);
+
+      return svrp.mk({
+        dbKey: js.ws(db.readKey()),
+        mainNick: js.ws(cs.mainNick),
+        Cos: arr.toJs(cs.Cos, co.toJs),
+        Volumes: dic.toJs(Volumes, js.wf)
+      });
+    }
+    "setMain": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      cosTb.setMain(js.rs(Rq\nick));
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    "select": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      nick, value = [. js.rs(Rq\nick), js.rb(Rq\value)];
+      cosTb.select(nick, value);
+      if (value) qspr.updateClosesAndRefs(nick, false);
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    "test": {
+      nick = js.rs(Rq\nick);
+      withErrorsV = [false];
+      withWarningsV = [false];
+      // [<quote>.] b
+      Qs, err = quotesDb.readQs(nick);
+      if (err == "") {
+        , :arr Errs = qs.correct(Qs);
+        :cos cs = cosTb.read();
+        Mqs, err = quotesDb.readQs(cs.mainNick);
+        if (err == "") {
+          // [<quote>.] [s.]
+          , :arr Err2s = qs.correctDates(Qs, Mqs);
+          for (err = Err2s) Errs.push(err);
+        }
+        if (!!Errs){
+          withWarningsV! = true;
+          log.error(str.fmt(
+            "Warnings testing %v\n%v\nand %v more",
+            [. nick, Errs[0], Errs.size() - 1]
+          ));
+        }
+      } else {
+        withErrorsV! = true;
+        log.error(str.fmt("Error testing %v\n%v", [. nick, err]));
+      }
+
+      return svrp.mk({
+        withErrors: js.wb(withErrorsV!),
+        withWarnings: js.wb(withWarningsV!)
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

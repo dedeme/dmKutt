@@ -1,0 +1,161 @@
+// Copyright 03-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Investor data.
+
+import "libmkt/cts" : mkCts;
+import "libmkt/broker";
+import "coData";
+import "cts";
+
+(idata) [. [f]ff{[. if]}{s}ii{b}{(coData)}];
+
+/// Constructor.
+/// The model identifier is missing because is the base name of the data table
+/// file.
+///   Params     : Investor parameters.
+///   cash       : Cash to investing + withdrawals.
+///   withdrawals: Cash withdrawals.
+///   Portfolio  : Dictionary {nick:[.stocks, price]} of conpanies sold.
+///   Jail       : Dictionary {nick: endDate} of companies forbiden until
+///                'endDate' inclusive.
+///   days       : Days operating.
+///   sales      : Sales done.
+///   Orders     : Dictionary {nick: isSale} of operations to do.
+///   CoData     : Dictionary {nick: (coData)} of data to calculate references.
+//: [. [f]ff{[. if]}{s}ii{b}{(coData)}]
+new : Params, cash, withdrawals, Portfolio, Jail, days, sales, Orders, CoData;
+
+/// Initial constructor
+//: [[f]|(idata)]
+new0 = \Params -> return [.
+    Params, mkCts.initialCapital, 0.0, {}/[. if]/, {}/s/, 0, 0, {}/b/, {}/(coData)/
+  ];;
+
+/// Returns the amount of cash available to investing.
+//: [(idata)|f]
+investingCash = \d -> return d[cash] - d[withdrawals];;
+
+/// Returns assets value (including withdrawals)
+/// NOTE. Every company in d.Portfolio must be in Closes.
+///   d     : Investor data.
+///   Closes: Current closes ({nick->value})
+//: [(idata){f}|f]
+assets = \d, Closes -> {
+  stocksValueV = [0.0];
+  for (nick, StPr = d[Portfolio])
+    stocksValueV! += broker.sell(StPr[0], Closes[nick]);
+  return d[cash] + stocksValueV!;
+};
+
+/// Modifies 'd' executing 'd[Orders]'.
+/// Makes the following modifications:
+///   - Update d[cash]
+///   - Update d[Portfolio]
+///   - Update d[Jail]
+///   - Remove d[Orders] entries
+/// Note: Nicks in 'd[Orders]' and Nicks in 'Removed' must be in 'Opens'.
+///   d      : Investor data.
+///   date   : Current date in format YYYYMMDD.
+///   Opens  : Current opens ({nick->value})
+///   Removed: Nicks removed from the set of 'nicks to operate'.
+//: [(idata)s{f}[s]|]
+execute = \d, today, Opens, Removed -> {
+  // Auxiliary function.
+  //: [s|]
+  sale = \nick -> {
+    // Auxiliary function.
+    //: [si|s]
+    addDays = \dt, days ->
+      return time.toStr(time.addDays(time.fromStr(dt)!, days));;
+
+    d[sales] += 1;
+    stocks, price = d[Portfolio][nick];
+    op = Opens[nick];
+    d[cash] += broker.sell(stocks, op);
+    dic.remove(d[Portfolio], nick);
+    dic.put(d[Jail], nick,
+      op < price * mkCts.noLossMultiplicator
+        ? addDays(today, cts.daysLoss7)
+        : today
+    );
+  };
+
+  d[days] += 1;
+  Os = d[Orders];
+
+  // Remove outdated in jail
+  for (nick = dic.keys(d[Jail])) if (d[Jail][nick] < today)
+    dic.remove(d[Jail], nick);
+
+  // buys
+  :arr InJail = dic.keys(d[Jail]);
+  cashV = [investingCash(d)];
+  toSellNV = [0];
+  for (nk, v = Os) if (dic.hasKey(d[Portfolio], nk))
+    toSellNV! += 1;
+  maxBuysV = [mkCts.maxCos - dic.size(d[Portfolio]) + toSellNV!];
+  for (nick, isSale = Os) if (!isSale) {
+    if (cashV! <= mkCts.minToBet | maxBuysV! <= 0) break;
+    if (InJail.any(\nk -> return nk == nick;)) continue;
+    op = Opens[nick];
+    stocks = math.ftoi(mkCts.bet / op);
+    cost = broker.buy(stocks, op);
+    dic.put(d[Portfolio], nick, [. stocks, op]);
+    cashV! -= cost;
+    d[cash] -= cost;
+    maxBuysV! -= 1;
+  }
+
+  // Sale removed
+  while () {
+    nickOp = []/s/;
+    for (nk = Removed) if (dic.hasKey(d[Portfolio], nk)) {
+      nickOp.push(nk);
+      break;
+    }
+    if (!nickOp) break;
+    sale(nickOp!);
+  }
+
+  // sales
+  for (nick, isSale = Os) if (isSale & dic.hasKey(d[Portfolio], nick))
+    sale(nick);
+
+  // Remove orders
+  for (nick = dic.keys(Os)) dic.remove(Os, nick);
+};
+
+//: [(idata)|s]
+toJs = \o -> {
+  return js.wa([
+    arr.toJs(o[Params], \p -> return js.wf2(p, cts.paramMaxDec);),
+    js.wf2(o[cash], 2),
+    js.wf2(o[withdrawals], 2),
+    dic.toJs(o[Portfolio], \E -> return js.wa([js.wi(E[0]), js.wf2(E[1], 2)]);),
+    dic.toJs(o[Jail], js.ws),
+    js.wi(o[days]),
+    js.wi(o[sales]),
+    dic.toJs(o[Orders], js.wb),
+    dic.toJs(o[CoData], coData.toJs)
+  ]);
+};
+
+//: [s|(idata)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    arr.fromJs(A[0], js.rf),
+    js.rf(A[1]),
+    js.rf(A[2]),
+    dic.fromJs(A[3], \ej -> {
+        Es = js.ra(ej);
+        return [. js.ri(Es[0]), js.rf(Es[1])];
+      }),
+    dic.fromJs(A[4], js.rs),
+    js.ri(A[5]),
+    js.ri(A[6]),
+    dic.fromJs(A[7], js.rb),
+    dic.fromJs(A[8], coData.fromJs)
+  ];
+};

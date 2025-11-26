@@ -1,0 +1,30 @@
+// Copyright 22-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Settings hub.
+
+import "libdm/svrp";
+import "settings/fixedStPg";
+import "settings/calendarPg";
+import "settings/nicksPg";
+import "settings/nickEditorPg";
+import "settings/ibexCosPg";
+import "settings/serversPg";
+import "settings/annsPg";
+import "settings/investorsPg";
+
+//: [{s}|s]
+process = \Rq -> {
+  source = js.rs(Rq\source);
+  return switch (source) {
+    "FixedStPg": fixedStPg.process(Rq);
+    "CalendarPg": calendarPg.process(Rq);
+    "NicksPg": nicksPg.process(Rq);
+    "NickEditorPg": nickEditorPg.process(Rq);
+    "IbexCosPg": ibexCosPg.process(Rq);
+    "ServersPg": serversPg.process(Rq);
+    "AnnsPg": annsPg.process(Rq);
+    "InvestorsPg": investorsPg.process(Rq);
+    default: throw([]/s/, "Value of source (" + source + ") is not valid");
+  };
+};

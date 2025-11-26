@@ -1,0 +1,78 @@
+// Copyright 23-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Reader of companies daily quotes after market is close.
+
+import "data/qsv/qsv";
+import "data/qsv/dailyQ";
+
+/// Return [serveIds, [quotes, quotes, quotes], warnings]>
+/// Each quotes came from a server.
+/// When server can not be read, 'quotes' is an empty array.
+/// Servers read are: BYM, IBERB and PCB, in this order.
+//: [|[. [. sss] [. [(dailyQ)][(dailyQ)][(dailyQ)]] [s]]]
+run = \ -> {
+  Ws = []/s/;
+
+  Q1V = [[]/(dailyQ)/];
+  E1V = [[]/s/];
+  Q2V = [[]/(dailyQ)/];
+  E2V = [[]/s/];
+  Q3V = [[]/(dailyQ)/];
+  E3V = [[]/s/];
+  :thread th1 = thread.start(\ -> {
+      Qs, :arr Ws = runServer("BYM");
+
+      Q1V! = Qs;
+      E1V! = Ws.map(\w -> return "[BYM] " + w;);
+    });
+  :thread th2 = thread.start(\ -> {
+      Qs, :arr Ws = runServer("PCB");
+
+      Q2V! = Qs;
+      E2V! = Ws.map(\w -> return "[PCB] " + w;);
+    });
+  :thread th3 = thread.start(\ -> {
+      Qs, :arr Ws = runServer("IBERB");
+
+      Q3V! = Qs;
+      E3V! = Ws.map(\w -> return "[IBERB] " + w;);
+    });
+
+  th1.join();
+  th2.join();
+  th3.join();
+
+  :arr E1s = E1V!;
+  :arr E2s = E2V!;
+  :arr E3s = E3V!;
+  Ws.cat(E1s + E2s + E3s);
+
+  return [. [. "BYM", "PCB", "IBERB"], [. Q1V!, Q2V!, Q3V!], Ws];
+};
+
+/// Read quotes from server.
+/// Returns [quotes, warnings]
+/// When server can not be read, 'quotes' is an empty array.
+//: [s|[. [(dailyQ)][s]]]
+runServer = \svId -> {
+  sv = svId;
+  rOp, err = qsv.rq({
+    rq: js.ws("daily"),
+    sv: js.ws(sv)
+  });
+  if (err != "")
+    return [. []/(dailyQ)/, ["Fail reading " + sv + "\n" + err]];
+
+  R = js.ra(rOp!);
+  ok = js.rb(R[1]);
+  if (!ok)
+    return [. []/(dailyQ)/, ["Fail reading " + sv + "\n" + js.rs(R[0])]];
+
+  QWs = js.ro(R[0]);
+  Qs = arr.fromJs(QWs\Qs, dailyQ.fromJs);
+  Ws = arr.fromJs(QWs\Ws, js.rs);
+
+  return [. Qs, Ws];
+};
+

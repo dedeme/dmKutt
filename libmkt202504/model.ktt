@@ -1,0 +1,147 @@
+// Copyright 04-Apr-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Market model
+
+import "model/appr";
+import "model/appr2";
+import "model/appr3";
+import "model/ea";
+import "model/ea2";
+import "model/ma";
+import "model/mm";
+import "model/qfix";
+import "model/qmob";
+import "model/sprs";
+import "model/uudd";
+import "model/uudd0";
+import "model/uudd2";
+import "model/uuqf";
+import "rRefs";
+
+(model) [. sss[s][i] ];
+
+/// Type of parameters.
+dayParam, percParam =;
+
+/// Constructor.
+///   id           : Model identifier (short name in uppercase).
+///   name         : Model name.
+///   doc          : Documentation.
+///   ParamNames   : Parameter names.
+///   ParamTypes   : Parameter types. Each parameter can be:
+///                  model.dayParam or model.percParam.
+//: [. sss[s][i] ]
+new : id, name, doc, ParamNames, ParamTypes;
+
+//: [(model)|s]
+toJs = \m -> return js.wa([
+    js.ws(m.id),
+    js.ws(m.name),
+    js.ws(m.doc),
+    arr.toJs(m.ParamNames, js.ws),
+    arr.toJs(m.ParamTypes, js.wi)
+  ]);;
+
+/// Returns a new [. isSold, reference, closes array] of one company,
+/// where:
+/// state -> is true if the company is not in stock.
+/// reference -> is the new company reference.
+/// closes -> Closes used for calculating references.
+///   model : Model.
+///   Ref   : Reference data of previous calculus
+///           ([. state, reference, closes array]).
+///           'reference' is equals -1 when it is not fixed the initial one. In
+///           such case values of 'state' and 'closes array' are indifferent (you
+///           can use '[. false, -1.0, []]').
+///   cl    : Current close.
+///   Params: Model parameters.
+//: [ (model)[. bf[f]]f[f] | [. bf[f]] ]
+ref = \m, Ref, cl, Params -> {
+  fn = switch (m.id) {
+    "APRX": appr.ref;
+    "APRX2": appr2.ref;
+    "APRX3": appr3.ref;
+    "ME": ea.ref;
+    "ME2": ea2.ref;
+    "MM": ma.ref;
+    "MX_MN": mm.ref;
+    "QFIJO": qfix.ref;
+    "QMOV": qmob.ref;
+    "SPRS": sprs.ref;
+    "SS_BB": uudd.ref;
+    "SSBB0": uudd0.ref;
+    "SSBB2": uudd2.ref;
+    "SSQF": uuqf.ref;
+    default: throw (
+        []/[[. bf[f]]f[f] | [. bf[f]]]/,
+        "References function of model " + m.id + " not found"
+      );
+  };
+  return fn(Ref, cl, Params);
+};
+
+/// Returns references of a model. Rows are dates (from before to after) and
+/// columns companies.
+///   model : Model.
+///   Closes: Matrix 'dates x companies' with market closes.
+///           This closes must be regularized (without -1.0 values).
+///   Params: Parameter values.
+//: [ (model)[[f]][f] | [[f]] ]
+refs = \m, Closes, Params -> {
+  fn = switch (m.id) {
+    "APRX": appr.refs;
+    "APRX2": appr2.refs;
+    "APRX3": appr3.refs;
+    "ME": ea.refs;
+    "ME2": ea2.refs;
+    "MM": ma.refs;
+    "MX_MN": mm.refs;
+    "QFIJO": qfix.refs;
+    "QMOV": qmob.refs;
+    "SPRS": sprs.refs;
+    "SS_BB": uudd.refs;
+    "SSBB0": uudd0.refs;
+    "SSBB2": uudd2.refs;
+    "SSQF": uuqf.refs;
+    default: throw (
+        []/[[[f]][f]|[[f]]]/,
+        "References function of model " + m.id + " not found"
+      );
+  };
+  return fn(Closes, Params);
+};
+
+/// Returns real references of a model-Company.
+/// Real references are calculated from a date-ref to today.
+///   model  : Model.
+///   dateIx : Index of 'Closes' corresponding to the 'rref' date, or -1 if
+///            it is missing.
+///   rref   : Real reference value, or -1.0 if it is missing.
+///   Closes : Company closes.
+///            These closes must be regularized (without -1.0 values).
+///   Params : Parameter values.
+//: [(model)if[f][f]|(rRefs)]
+realRefs = \m, dateIx, rref, Closes, Params -> {
+  fn = switch (m.id) {
+//    "APRX": appr.realRefs;
+//    "APRX2": appr2.realRefs;
+//    "APRX3": appr3.realRefs;
+//    "ME": ea.realRefs;
+//    "ME2": ea2.realRefs;
+//    "MM": ma.realRefs;
+//    "MX_MN": mm.realRefs;
+//    "QFIJO": qfix.realRefs;
+//    "QMOV": qmob.realRefs;
+//    "SPRS": sprs.realRefs;
+//    "SS_BB": uudd.realRefs;
+    "SSBB0": uudd0.realRefs;
+    "SSBB2": uudd2.realRefs;
+//    "SSQF": uuqf.realRefs;
+    default: throw (
+        []/[if[f][f]|(rRefs)]/,
+        "Real references of model " + m.id + " not found"
+      );
+  };
+  return fn(dateIx, rref, Closes, Params);
+};

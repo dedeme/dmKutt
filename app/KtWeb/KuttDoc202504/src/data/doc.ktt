@@ -1,0 +1,32 @@
+// Copyright 17-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Module documentation data.
+
+import "docEntry";
+
+(doc) [.
+    s[(docEntry)][(docEntry)][(docEntry)][(docEntry)][(docEntry)][(docEntry)]
+  ];
+
+/// Constructor.
+///   docTx       : Module documentation.
+///   Imports     : Imports documentation.
+///   Types       : Type definitions documentation.
+///   Values      : Values documentation.
+///   Enumerations: Enumerations documentation.
+///   Indexeds    : Indexed records documentation.
+///   Functions   : Functions documentation.
+//: [. s[(docEntry)][(docEntry)][(docEntry)][(docEntry)][(docEntry)][(docEntry)]]
+new : docTx, Imports, Types, Values, Enumerations, Indexeds, Functions;
+
+//: [(doc)|s]
+toJs = \o -> return js.wa([
+    js.ws(o.docTx),
+    arr.toJs(o.Imports, docEntry.toJs),
+    arr.toJs(o.Types, docEntry.toJs),
+    arr.toJs(o.Values, docEntry.toJs),
+    arr.toJs(o.Enumerations, docEntry.toJs),
+    arr.toJs(o.Indexeds, docEntry.toJs),
+    arr.toJs(o.Functions, docEntry.toJs)
+  ]);;

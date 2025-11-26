@@ -1,0 +1,27 @@
+// Copyright 18-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Daily charts table.
+
+import "../dailyDb";
+import "data/chart/dailyChart";
+
+_
+//:[|s]
+fpath = \ -> return file.cat(dailyDb.dpath(), ["dailyCharts.tb"]);;
+
+/// Initialize table.
+//: [|]
+init = \ -> if (!file.exists(fpath())) write([]);;
+
+/// Returns table in JS format.
+//: [|s]
+readJs = \ -> return file.read(fpath());;
+
+/// Returns table.
+//: [|[(dailyChart)]]
+read = \ -> return arr.fromJs(readJs(), dailyChart.fromJs);;
+
+/// Write table.
+//: [[(dailyChart)]|]
+write = \:arr DCs -> file.write(fpath(), DCs.toJs(dailyChart.toJs));;

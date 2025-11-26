@@ -1,0 +1,55 @@
+// Copyright 22-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Investors page.
+
+import "libdm/svrp";
+import "libmkt/model";
+import "libmkt/models";
+import "libdm/log";
+import "data/investor/investor";
+import "data/investor/istrategy";
+import "db/investorTb";
+import "db";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      return svrp.mk({
+        dbKey: js.ws(db.readKey()),
+        Models: arr.toJs(models.list(), model.toJs),
+        inv: investor.toJs(investorTb.read())
+      });
+    }
+    "update": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      nickName, modelId, Params = [.
+        js.rs(Rq\nickName),
+        js.rs(Rq\modelId),
+        arr.fromJs(Rq\Params, js.rf)
+      ];
+      :investor inv = investorTb.read();
+      if (nickName != "")
+        inv.Nicks[nickName] = istrategy.new(modelId, Params);
+      else
+        inv.base = istrategy.new(modelId, Params);
+      investorTb.write(inv);
+
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    "updateAll": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      err = investorTb.update();
+      if (err != "") log.error(err);
+
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

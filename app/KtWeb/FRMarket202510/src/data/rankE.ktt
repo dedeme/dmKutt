@@ -1,0 +1,20 @@
+// Copyright 11-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// <rankE> data definition.
+
+/// Ranking entry type.
+(rankE) [. [f][f]];
+
+/// Constructor.
+///   Params: Parameters.
+///   History: Aseets ratio history (20 values) from before to after.
+//: [. [f][f]]
+new : Params, History;
+
+//: [(rankE)|s]
+toJs = \o -> return js.wa([
+    arr.toJs(o[Params], js.wf),
+    arr.toJs(o[History], js.wf)
+  ]);;
+

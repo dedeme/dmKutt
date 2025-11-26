@@ -1,0 +1,56 @@
+// Copyright 05-Nov-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Data base management.
+
+import "libdm/log";
+import "data/upds";
+import "data/hupds";
+import "updater";
+import "cts";
+
+// Path of updaters table
+_
+//: [|s]
+updsPath = \ -> return file.cat(cts.dataPath(), ["upds.tb"]);;
+
+// Path of historic updaters table
+_
+//: [|s]
+hupdsPath = \ -> return file.cat(cts.dataPath(), ["hupds.tb"]);;
+
+// Returns the penultimate date of historic daily results of MMarket.
+_
+//: [|s]
+penultimateDate = \ -> {
+  :arr Ds = file.dir(cts.mmarketPath);
+  Ds.sort(\d1, d2 -> return d1 > d2;);
+  return Ds[1];
+};
+
+/// Initializes data base.
+//: [|]
+init = \ -> {
+  if (!file.exists(cts.dataPath())) {
+    file.mkdir(cts.dataPath());
+    log.reset();
+    write(upds.newDefault(penultimateDate()));
+    updater.run();
+  }
+};
+
+/// Reads the table of updaters.
+//: [|(upds)]
+read = \ -> return upds.fromJs(file.read(updsPath()));;
+
+/// Writes the table of updaters.
+//: [(upds)|]
+write = \tb -> file.write(updsPath(), upds.toJs(tb));;
+
+/// Reads the historic table of updaters.
+//: [|(hupds)]
+readHistoric = \ -> return hupds.fromJs(file.read(hupdsPath()));;
+
+/// Writes the historic table of updaters.
+//: [(hupds)|]
+writeHistoric = \tb -> file.write(hupdsPath(), hupds.toJs(tb));;

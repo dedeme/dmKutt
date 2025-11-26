@@ -1,0 +1,110 @@
+// Copyright 06-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary page.
+
+import "libdm/svrp";
+import "libmkt/model";
+import "libmkt/cts" : mkCts;
+import "data/irs";
+import "data/irsTable";
+import "data/cardId";
+import "data/card";
+import "db/resultsDb";
+import "db/cardsTb";
+import "cts";
+import "fns";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      mdId = js.rs(Rq\mdId);
+      params = js.rs(Rq\params);
+      :arr Models = fns.modelList();
+      :irs r = resultsDb.readBest(Models.map(\:model md -> return md.id;));
+      //: [|s]
+      fcId = \ -> {
+        mdOp = Models.find(\:model md -> return md.id == mdId;);
+        if (!mdOp) return r.id();
+        id = mdId + params;
+        tb = irsTable.fromJs(resultsDb.readLast(mdId));
+        for (:irs r = tb.Irss) if (r.id() == id) return id;
+        return r.id();
+      };
+      cId = cardId.fromId(fcId());
+      :card cd = fns.mkCard(
+        Models.find(\:model md -> return md.id == cId.mdId;)!,
+        cId.Params
+      );
+      :arr CardIds = cardsTb.read();
+      if (!CardIds.any(\cid -> return cid == cId;)) {
+        CardIds.push(cId);
+        cardsTb.write(CardIds);
+      }
+      return svrp.mk({
+        CardIds: CardIds.toJs(cardId.toJs),
+        cd: cd.toJs()
+      });
+    }
+    "remove": {
+      cdId = js.rs(Rq\cdId);
+      :arr CardIds = cardsTb.read();
+      cardsTb.write(CardIds.filter(\:cardId cid -> return cid.id() != cdId;));
+      return svrp.mkEmpty();
+    }
+    "assets": {
+      mdId = js.rs(Rq\mdId);
+      Params = arr.fromJs(Rq\Params, js.rf);
+      period = js.rs(Rq\period);
+
+      :arr Dates = resultsDb.periodDates(mdId, period);
+      :arr Values = Dates.map(\d -> {
+        :irsTable tb = irsTable.fromJs(resultsDb.read(mdId, period, d));
+        rOp = arr.find(tb.Irss, \:irs r -> return r.Params == Params;);
+        if (!rOp) return []/i/;
+        :irs r = rOp!;
+        return [math.ftoi(r.yearAssets() * mkCts.initialCapital)];
+      });
+      return svrp.mk({
+        Dates: Dates.toJs(js.ws),
+        Values: Values.toJs(\nOp ->
+            return arr.toJs(nOp, js.wi);
+          )
+      });
+    }
+
+    "positions": {
+      mdId = js.rs(Rq\mdId);
+      Params = arr.fromJs(Rq\Params, js.rf);
+      period = js.rs(Rq\period);
+      ofEveryone = js.rb(Rq\ofEveryone);
+
+      :arr Dates = resultsDb.periodDates(mdId, period);
+      :arr Values = Dates.map(\d -> {
+        :irsTable tb = irsTable.fromJs(resultsDb.read(mdId, period, d));
+        r0Op = arr.find(tb.Irss, \:irs r -> return r.Params == Params;);
+        if (!r0Op) return []/i/;
+        :irs r0 = r0Op!;
+        assets = r0.yearAssets();
+
+        nV = [1];
+        for (:model md = fns.modelList()) {
+          if (ofEveryone | md.id == mdId) {
+            :irsTable tb = irsTable.fromJs(resultsDb.read(md.id, period, d));
+            for (:irs r = tb.Irss) if (r.yearAssets() > assets) nV! += 1;
+          }
+        }
+        return [nV!];
+      });
+      return svrp.mk({
+        Dates: Dates.toJs(js.ws),
+        Values: Values.toJs(\nOp ->
+            return arr.toJs(nOp, js.wi);
+          )
+      });
+    }
+  }
+  throw "Value of rq (" + rq + ") is not valid";
+};

@@ -1,0 +1,55 @@
+// Copyright 23-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Reader of companies quotes when market is open.
+
+import "data/qsvs";
+import "data/qsv/qsv";
+import "data/qsv/currentQ";
+
+/// Return Result [. serverId, quotes].
+/// When server can not be read, 'quotes' is an empty array.
+//: [|[. [[. s[(currentQ)]]]s]]
+run = \ -> {
+  :qsv sv = qsvs.getCurrent();
+  rOp, err = qsv.rq({
+    rq: js.ws("current"),
+    sv: js.ws(sv.id)
+  });
+  if (err != "")
+    return [. []/[. s[(currentQ)]]/, "Fail reading " + sv.id + "\n" + err];
+
+  A = js.ra(rOp!);
+  ok = js.rb(A[1]);
+  if (!ok)
+    return [.
+      []/[. s[(currentQ)]]/,
+      "Fail reading " + sv.id + "\n" + js.rs(A[0])
+    ];
+
+  return [. [[. sv.id, arr.fromJs(A[0], currentQ.fromJs)]], ""];
+};
+
+/// Return Result 'quotes'.
+/// When server can not be read, 'quotes' is an empty array.
+/// Server read is: BYM or IBERB.
+//: [s|[. [[(currentQ)]]s]]
+runServer = \svId -> {
+  sv = svId;
+  rOp, err = qsv.rq({
+    rq: js.ws("current"),
+    sv: js.ws(sv)
+  });
+  if (err != "")
+    return [. []/[(currentQ)]/, "Fail reading " + sv + "\n" + err];
+
+  A = js.ra(rOp!);
+  ok = js.rb(A[1]);
+  if (!ok)
+    return [.
+      []/[(currentQ)]/,
+      "Fail reading " + sv + "\n" + js.rs(A[0])
+    ];
+
+  return [. [arr.fromJs(A[0], currentQ.fromJs)], ""];
+};

@@ -1,0 +1,32 @@
+// Copyright 30-Mar-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary page.
+
+import "libdm/svrp";
+import "libmkt/models";
+import "libmkt/model";
+import "data/sm";
+import "data/smE";
+import "data/smVal";
+import "data/evE";
+import "data/upRs";
+import "db";
+import "cts";
+
+//: [{s}|s]
+process = \:dic Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      mdId = js.rs(Rq\mdId);
+      return svrp.mk({
+        MdEvals: arr.toJs(
+            db.read("daily", arr.peek(db.dates("daily")), mdId),
+            evE.toJsClient
+          )
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

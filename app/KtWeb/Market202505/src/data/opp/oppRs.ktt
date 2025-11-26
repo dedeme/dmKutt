@@ -1,0 +1,24 @@
+// Copyright 04-Sep-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Opportunity costs current result.
+
+import "oppRc";
+
+/// Opportuity costs current result type
+(oppRs) [. ff[(oppRc)]];
+
+/// Constructor. Do not use directory, use 'new'.
+///   buyPfs : Profits of previous buys.
+///   salePfs: Profits of previous sales.
+///   current: Current operations.
+//: [. ff[(oppRc)]]
+new : buyPfs, salePfs, Current;
+
+//: [(oppRs)|s]
+toJs = \o -> return js.wa([
+    js.wf(o[buyPfs]),
+    js.wf(o[salePfs]),
+    arr.toJs(o[Current], oppRc.toJs)
+  ]);;
+

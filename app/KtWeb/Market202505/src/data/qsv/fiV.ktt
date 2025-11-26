@@ -1,0 +1,22 @@
+// Copyright 08-Sep-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Last fixed income value
+
+/// 'Last fixed income value' type
+(fiV) [. sf];
+
+/// Constructor.
+///   date: Value date.
+///   irr : internal ratio of return.
+//: [. sf]
+new : date, irr;
+
+//: [s|(fiV)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[date]),
+    js.rf(A[irr])
+  ];
+};

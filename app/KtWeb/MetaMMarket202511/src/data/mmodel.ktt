@@ -1,0 +1,15 @@
+// Copyright 04-Nov-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// MetaMMarket model.
+
+import "libmkt/order";
+
+(mmodel) [. sf[(order)]];
+
+/// Constructor.
+///   id: Model identifier.
+///   weight: Best investor weight.
+///   Orders: Orders in best investor portfolio.
+//: [. sf[(order)]]
+new : id, weight, Orders;

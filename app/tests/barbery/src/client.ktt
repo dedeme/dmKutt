@@ -1,0 +1,32 @@
+// Copyright 01-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+import "cts";
+import "shop";
+
+//: [|]
+init = \ -> shop.init();;
+
+//: [|]
+makerRun = \ -> {
+  I = [0];
+  while (shop.IsPreopen! | shop.IsOpen!) {
+    I! += 1;
+    thread.run(\-> run(new(I!)););
+    sys.sleep(1 + math.rndi(cts.clientMakerTime));
+  }
+};
+
+//: [i|s]
+new = \i -> return math.itos(i);;
+
+//: [s|]
+run = \cl -> {
+  //: [s|]
+  msg = \m -> sys.println(str.fmt("Client %v: %v", [. cl, m]));;
+
+  msg("Arrive to barbery");
+  if (!shop.IsOpen!) msg("Go out because barbery is close");
+  else if (shop.isFull()) msg("Go out because barbery is full");
+  else thread.sync(\-> shop.takeASit(cl););
+};

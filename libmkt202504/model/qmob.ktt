@@ -1,0 +1,100 @@
+// Copyright 06-Apr-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Model Mobil Quantum.
+
+import "../model";
+import "doc/qmobDoc";
+
+/// Returns a new 'appr2' model.
+//: [|(model)]
+new = \ -> return model.new(
+    "QMOV",
+    "Quantum móvil",
+    qmobDoc.text,
+    ["Salto"],
+    [model.percParam]
+  );;
+
+/// Returns a new [. isSold, reference, closes array] of one company,
+/// where:
+/// state -> is true if the company is not in stock.
+/// reference -> is the new company reference.
+/// closes -> Closes used for calculating references.
+///   Ref   : Reference data of previous calculus
+///           ([. isSold, reference, closes array]).
+///           'reference' is equals -1 when it is not fixed the initial one.
+///   cl    : Current close.
+///   Params: Model parameters.
+//: [[. bf[f]]f[f] | [. bf[f]]]
+ref = \Ref, cl, Params -> {
+  gap = Params[0];
+  upGap = 1.0 + gap;
+  downGap = 1.0 - gap;
+
+  isSold = Ref[0];
+  rf = Ref[1];
+  // Cls = Ref[2];
+  if (rf < 0.0) return [. false, cl * downGap, []/f/];
+
+  if (isSold) {
+    if (cl > rf) {
+      return [. false, cl * downGap, []/f/];
+    } else {
+      newRf = cl * upGap;
+      return [. true, newRf > rf ? rf : newRf, []/f/];
+    }
+  } else {
+    if (cl < rf) {
+      return [. true, cl * upGap, []/f/];
+    } else {
+      newRf = cl * downGap;
+      return [. false, newRf < rf ? rf : newRf, []/f/];
+    }
+  }
+};
+
+//: [ [[f]][f] | [[f]] ]
+refs = \:arr Closes, :arr Params -> {
+  gap = Params[0];
+  upGap = 1.0 + gap;
+  downGap = 1.0 - gap;
+  :arr Cls0 = Closes[0];
+  ndates = Closes.size();
+  ncos = Cls0.size();
+
+  IsSolds = arr.new(false, ncos);
+  Refs = []/f/;
+  for (cl = Cls0) Refs.push(cl * downGap);
+
+  Refs2 = Refs.copy();
+  AllRefs = arr.new(Refs2, ndates);
+  for (idate = 1:ndates) {
+    ClosesR = Closes.get(idate);
+
+    for (ico = 0:ncos) {
+      c = ClosesR.get(ico);
+      rf = Refs.get(ico);
+
+      if (IsSolds.get(ico)) {
+        if (c > rf) {
+          IsSolds.set(ico, false);
+          Refs.set(ico, c * downGap);
+        } else {
+          newRf = c * upGap;
+          Refs.set(ico, newRf > rf ? rf : newRf);
+        }
+      } else {
+        if (c < rf) {
+          IsSolds.set(ico, true);
+          Refs.set(ico, c * upGap);
+        } else {
+          newRf = c * downGap;
+          Refs.set(ico, newRf < rf ? rf : newRf);
+        }
+      }
+    }
+    AllRefs.set(idate, Refs.copy());
+  }
+  return AllRefs;
+};

@@ -1,0 +1,79 @@
+// Copyright 02-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Data base
+
+import "libdm/log";
+import "data/top";
+import "db/resultsDb";
+import "db/fleasDb";
+import "db/cardsTb";
+import "cts";
+
+_
+//: [|s]
+lockFile = \ -> return file.cat(cts.dataPath(), ["lock"]);;
+
+_
+//: [|s]
+opensFile = \ -> return file.cat(cts.dataPath(), ["opens.tb"]);;
+
+_
+//: [|s]
+topsFile = \ -> return file.cat(cts.dataPath(), ["tops.tb"]);;
+
+/// Initializes data base
+//: [|]
+init = \ -> {
+  p = cts.dataPath();
+  if (!file.exists(p)) {
+    file.mkdir(p);
+    writeOpens({});
+    writeTops([]);
+    resultsDb.init();
+    fleasDb.init();
+    cardsTb.init();
+    log.reset();
+  }
+};
+
+/// Lock data base while updating.
+/// If data base is already locked, returns the date of lock. Otherwise return "".
+//: [|s]
+lock = \ -> {
+  f = lockFile();
+  if (file.exists(f)) return file.read(f);
+  file.write(f, time.fmt(time.now(), "%D/%M/%Y %t"));
+  return "";
+};
+
+/// Unlock data base after updating.
+//: [|]
+unlock = \ -> file.del(lockFile());;
+
+/// Reads opens of previous operations in a dictionary {nick: value}.
+//: [|{f}]
+readOpens = \ -> return dic.fromJs(file.read(opensFile()), js.rf);;
+
+/// Writes opens of previous operations in a dictionary {nick: value}.
+//: [{f}|]
+writeOpens = \os ->
+  file.write(opensFile(), dic.toJs(os, \o -> return js.wf2(o, 4);));;
+
+/// Reads top investors data.
+//: [|[(top)]]
+readTops = \ -> return arr.fromJs(file.read(topsFile()), top.fromJs);;
+
+/// Writes top investors data.
+//: [[(top)]|]
+writeTops = \invs ->
+  file.write(topsFile(), arr.toJs(invs, top.toJs));;
+
+/// Removes files and directories with not existing models.
+//: [|]
+clean = \ -> {
+  MdIds = dic.keys(cts.paramBases());
+
+  fleasDb.cleanModels(MdIds);
+  resultsDb.cleanModels(MdIds);
+};

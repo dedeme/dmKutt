@@ -1,0 +1,32 @@
+// Copyright 23-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Settings hub.
+
+import "libdm/svrp";
+import "acc/balancePg";
+import "acc/profitsPg";
+import "acc/companiesPg";
+import "acc/tradingPg";
+import "acc/fixedPg";
+import "acc/ibexPg";
+import "acc/speedometersPg";
+import "acc/executionPg";
+import "acc/quotesPg";
+
+//: [{s}|s]
+process = \Rq -> {
+  source = js.rs(Rq\source);
+  return switch (source) {
+    "BalancePg": balancePg.process(Rq);
+    "ProfitsPg": profitsPg.process(Rq);
+    "CompaniesPg": companiesPg.process(Rq);
+    "TradingPg": tradingPg.process(Rq);
+    "FixedPg": fixedPg.process(Rq);
+    "IbexPg": ibexPg.process(Rq);
+    "SpeedometersPg": speedometersPg.process(Rq);
+    "ExecutionPg": executionPg.process(Rq);
+    "QuotesPg": quotesPg.process(Rq);
+    default: throw([]/s/, "Value of source (" + source + ") is not valid");
+  };
+};

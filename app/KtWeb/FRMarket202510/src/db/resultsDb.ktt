@@ -1,0 +1,112 @@
+// Copyright 03-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Results data base
+
+import "libmkt/model";
+import "data/irs";
+import "data/irsTable";
+import "fns";
+import "cts";
+import "db";
+
+/// Returns the path of a model directory of results.
+//: [|s]
+resultsPath = \ ->
+  return file.cat(cts.dataPath(), ["results"]);;
+
+
+/// Returns the path of a model results period.
+///   mdId: Model identifier.
+//: [s|s]
+modelPath = \mdId ->
+  return file.cat(resultsPath(), [mdId]);;
+
+/// Returns the path of a results period.
+///   mdId: Model identifier.
+///   pr  : One of 'cts.periods()'.
+//: [ss|s]
+periodPath = \mdId, pr ->
+  return file.cat(modelPath(mdId), [pr]);;
+
+/// Initializes data base
+//: [|]
+init = \ -> file.mkdir(resultsPath());;
+
+/// Create a new Model path
+///   mdId: Model identifier.
+//: [s|]
+mkModelPath = \mdId -> {
+  file.mkdir(modelPath(mdId));
+  for (pr = cts.periods()) file.mkdir(periodPath(mdId, pr));
+};
+
+/// Returns dates from before to after of a period.
+///   mdId: Model identifier.
+///   period: One of cts.periods.
+//: [ss|[s]]
+periodDates = \mdId, period -> {
+  :arr Ds = file.dir(periodPath(mdId, period));
+  Ds.sort(\d1, d2 -> return d1 < d2;);
+  return Ds;
+};
+
+/// Reads data of a period (irsTable JSONized).
+///   mdId: Model identifier.
+///   period: One of cts.periods.
+///   date  : Date to read. If it is not found an exception is raised.
+//: [sss|s]
+read = \mdId, period, date ->
+  return file.read(file.cat(periodPath(mdId, period), [date]));;
+
+/// Reads data (irsTable JSONized) of the last period available.
+///   mdId: Model identifier.
+//: [s|s]
+readLast = \mdId -> {
+  :arr Ds = periodDates(mdId, cts.daily);
+  return file.read(file.cat(periodPath(mdId, cts.daily), [Ds.peek()]));
+};
+
+/// Reads the best result.
+///   MdIds: Model identifiers.
+//: [[s]|(irs)]
+readBest = \MdIds -> {
+  rOp = []/(irs)/;
+  for (id = MdIds) {
+    tb = irsTable.fromJs(readLast(id));
+    :irs best = tb.best();
+    if (!rOp) rOp.push(best);
+    else if (rOp![irs.assets] < best.assets) rOp! = best;
+  }
+  return rOp!;
+};
+
+/// Writes data of a period.
+///   mdId: Model identifier.
+///   period: One of cts.periods.
+///   date  : Date to read. If it is not found an exception is raised.
+///   table : An irsTable JSONized.
+//: [ssss|]
+write = \mdId, period, date, table ->
+  file.write(file.cat(periodPath(mdId, period), [date]), table);;
+
+/// Removes old data of periods.
+///   mdId: Model identifier.
+//: [s|]
+clean = \mdId -> {
+  for (p = cts.periods()) {
+    :arr Dts = periodDates(mdId, p);
+    ExtraDates = Dts.take(Dts.size() - cts.datesInPeriod);
+    for (d = ExtraDates)
+      file.del(file.cat(periodPath(mdId, p), [d]));
+  }
+};
+
+/// Removes directories with not existing models.
+///   Models: Current model identifiers.
+//: [[s]|]
+cleanModels = \:arr MdIds -> {
+  for (mdId = file.dir(resultsPath())) if (!MdIds.any(\id -> return id == mdId;))
+    file.del(modelPath(mdId));
+};
+

@@ -1,0 +1,31 @@
+// Copyright 18-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Daily quote.
+
+/// 'Daily quote" type.
+(dailyQ) [. sfffff];
+
+/// Constructor.
+/// Values <= 0 are not valid ones.
+///   code : Company server code.
+///   open : Open value.
+///   close: Close value.
+///   max  : Maximum value.
+///   min  : Minimum value.
+///   vol  : Volume value.
+//: [. sfffff]
+new : code, open, close, max, min, vol;
+
+//: [s|(dailyQ)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[code]),
+    js.rf(A[open]),
+    js.rf(A[close]),
+    js.rf(A[max]),
+    js.rf(A[min]),
+    js.rf(A[vol])
+  ];
+};

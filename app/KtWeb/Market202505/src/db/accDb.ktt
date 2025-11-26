@@ -1,0 +1,26 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Accounting data base.
+
+import "acc/diariesDb";
+import "acc/profitsDb";
+import "acc/fxEquityTb";
+import "acc/currentFxTb";
+import "acc/fxAuctionsTb";
+import "cts";
+
+/// Data base file.
+//: [|s]
+dpath = \ -> return file.cat(cts.dataPath(), ["acc"]);;
+
+/// Initializes data base.
+//: [|]
+init = \ -> {
+  file.mkdir(dpath());
+  diariesDb.init();
+  profitsDb.init();
+  fxEquityTb.init();
+  currentFxTb.init();
+  fxAuctionsTb.init();
+};

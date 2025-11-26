@@ -1,0 +1,50 @@
+// Copyright 08-Sep-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Reader of fixed income last price.
+
+import "data/qsv/qsv";
+import "data/qsv/fiV";
+
+/// Reads fixed income value. It returns [value, ""] if reading is correct,
+/// othewise it returns [-1.0, "error"].
+///   date   : Expiration date.
+///   nominal: Fixed income nominal.
+///   id     : Fixed income identifier.
+//: [sfs | [. fs]]
+readValues = \date, nominal, id -> {
+  code = "Let-Tesoro-Desc-" + date[4:6] + "-" + date[:4] + "-" + id;
+  rOp, err = qsv.rq({
+    rq: js.ws("fi"),
+    sv: js.ws("BYM"),
+    code: js.ws(code)
+  });
+  if (err != "")
+    return [. -1.0, err];
+
+  A = js.ra(rOp!);
+  ok = js.rb(A[1]);
+  if (!ok)
+    return [. -1.0, js.rs(A[0])];
+
+  :fiV fiv = fiV.fromJs(A[0]);
+
+  days = math.itof(time.dfDays(time.fromStr(date)!, time.fromStr(fiv.date)!));
+  return [.
+    nominal / (1.0 + fiv.irr * days / 36000.0),
+    ""
+  ];
+};
+
+/// Reads all the auctions from 'Tesoro Público'.
+///   RETURN: Results<Js> where Js is {Auctions: [[s,s,s].], Ws: [s.]} JSONized.
+///     Each element of Auctions array are dates in format YYYYMMDD of:
+///       [auction, issuance, expiration]
+///     Each element of Ws is a warning.
+//: [ | [. [s] s] ]
+readAuctions = \ -> {
+  return qsv.rq({
+    rq: js.ws("fi"),
+    sv: js.ws("AUCTIONS")
+  });
+};

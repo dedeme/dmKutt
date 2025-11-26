@@ -1,0 +1,21 @@
+// Copyright 05-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Company nicks reader.
+
+import "cts";
+
+/// Returns selected companies sorted by ascendent alphabetic order.
+//: [|[s]]
+read = \ -> {
+  CoSels = arr.fromJs(
+    js.ra(file.read(cts.cosPath))[1],
+    \j -> {
+      A = js.ra(j);
+      return [. js.rs(A[0]), js.rb(A[1])];
+    }
+  );
+  Cos = arr.map(CoSels.filter(\E -> return E[1];), \E -> return E[0];);
+  Cos.sort(\d1, d2 -> return d1 < d2;);
+  return Cos;
+};

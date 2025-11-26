@@ -1,0 +1,26 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Settlement data.
+
+import "ldg";
+
+/// Settlement type
+(settlement) [. (ldg){[. if]}{i}[s]];
+
+/// Constructor.
+///   ledger     : Settlement ledger.
+///   Portfolio  : Settlement stocks portfolio. It is a dictionary {nick -> [stocks, price]},
+///                where price is the unitary average price of each stock.
+///   PortfolioFx: Settlement fixed incomes portfolio. It is a dictionary {nick -> nominal}.
+///   Errors     : Errors when calculating ledger and portfolio.
+//: [. (ldg){[. if]}{i}[s]]
+new : ledger, Portfolio, PortfolioFx, Errors;
+
+//: [(settlement)|s]
+toJs = \o -> return js.wa([
+    ldg.toJs(o[ledger]),
+    dic.toJs(o[Portfolio], \E -> return js.wa([js.wi(E[0]), js.wf(E[1])]);),
+    dic.toJs(o[PortfolioFx], js.wi),
+    arr.toJs(o[Errors], js.ws)
+  ]);;

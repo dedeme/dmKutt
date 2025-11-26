@@ -1,0 +1,42 @@
+// Copyright 04-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Model list
+
+import "model";
+import "model/appr";
+import "model/appr2";
+import "model/appr3";
+import "model/ea";
+import "model/ea2";
+import "model/ma";
+import "model/mm";
+import "model/qfix";
+import "model/qmob";
+import "model/sprs";
+import "model/uudd";
+import "model/uudd0";
+import "model/uudd2";
+import "model/uuqf";
+
+//: [ | [(model)] ]
+list = \-> return [
+    appr.new(),
+    appr2.new(),
+    appr3.new(),
+    ea.new(),
+    ea2.new(),
+    ma.new(),
+    mm.new(),
+    qfix.new(),
+    qmob.new(),
+    sprs.new(),
+    uudd.new(),
+    uudd0.new(),
+    uudd2.new(),
+    uuqf.new()
+  ];;
+
+/// Returns the model with identifier 'id' or empty array.
+//: [s | [(model)]]
+get = \id -> return arr.find(list(), \:model md -> return md.id == id;);;

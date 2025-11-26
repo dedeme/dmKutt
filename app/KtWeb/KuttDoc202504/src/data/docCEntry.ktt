@@ -1,0 +1,36 @@
+// Copyright 17-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Entry of documentation read from C.
+
+import "docEntry";
+
+(docCEntry) [. sssis];
+
+/// Constructor.
+///   type : One of s, i, t, v, e, x, f or r (standing for
+///          summary, import, type, value, enumeration, indexed, function and error.
+///   id   : Identifier. Empty in summary and errors. Of type (1), (2), ... in enumerations.
+///   code : Empty in summary and errors.
+///   line : Code line number.
+///   docTx: Documentation text. Message in errors.
+//: [. sssis]
+new : type, id, code, line, docTx;
+
+/// Generate docEntry from docCEntry.
+//: [(docCEntry)|(docEntry)]
+toDocEntry = \e -> return docEntry.new(
+    e.id, e.docTx, e.code, math.itos(e.line)
+  );;
+
+//: [s|(docCEntry)]
+fromJs = \j -> {
+  a = js.ra(j);
+  return [.
+    js.rs(a[type]),
+    js.rs(a[id]),
+    js.rs(a[code]),
+    js.ri(a[line]),
+    js.rs(a[docTx])
+  ];
+};

@@ -1,0 +1,28 @@
+// Copyright 18-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Investor's operation data definition.
+
+(invOperation) [. is];
+
+/// Constructor.
+///   stocks: If stocks > 0 is a sell operation.
+///           If stocks == 0 is a buy operation.
+///   nick  : Operation nick.
+//: [. is]
+new : stocks, nick;
+
+//: [(invOperation)|s]
+toJs = \o -> return js.wa([
+    js.wi(o[stocks]),
+    js.ws(o[nick])
+  ]);;
+
+//: [s|(invOperation)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.ri(A[stocks]),
+    js.rs(A[nick])
+  ];
+};

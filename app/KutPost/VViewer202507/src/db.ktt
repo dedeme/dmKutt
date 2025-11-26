@@ -1,0 +1,26 @@
+// Copyright 21-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Data base management.
+
+import "cts";
+import "data/entry";
+
+/// Initialize database
+//: [|]
+init = \-> {
+  if (!file.isDirectory(cts.snapshotPath())){
+    throw
+      "Link not found.\n" +
+      "  Directory symbol link not found:\n" +
+      "    '" + cts.snapshotPath() + "'\n" +
+      "  A symbol link must be manually done to an empty directory:\n" +
+      "    'WEB/KutPost/VViewer/snapshots'"
+    ;
+  }
+  file.mkdir(cts.dataPath());
+  file.mkdir(cts.listPath());
+  current = cts.currentPath();
+  if (!file.exists(current))
+    file.write(current, entry.toJs(entry.new("-", "-.avi", 0)));
+};

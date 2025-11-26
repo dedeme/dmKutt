@@ -1,0 +1,56 @@
+// Copyright 18-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Code page.
+
+import "libdm/svrp";
+import "data/dpath";
+import "db/pathsTb";
+
+/// Process request.
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "code": {
+      pack, pth = [. js.rs(Rq\pack), js.rs(Rq\pth)];
+
+      codeOp = []/s/;
+      Mods = []/s/;
+      Visited = []/s/;
+      //: [s|]
+      addMods = \:file d -> {
+        if (!d.exists()) return;
+        dcan = d.canonical();
+        if (Visited.any(\p -> return p == dcan;)) return;
+        Visited.push(dcan);
+        //: [s|]
+        add = \md -> {
+          if (!Mods.any(\m -> return m == md;)) Mods.push(md);
+        };
+        for (name = file.dir(d)) {
+          :file f = d.cat([name]);
+          if (f.isDirectory()) addMods(f);
+          else if (str.ends(name, ".ktt")) add(name[:-4]);
+        }
+      };
+
+      ppathOp = arr.find(
+        pathsTb.read(), \:dpath p -> return p.id == pack;
+      );
+      if (!!ppathOp) {
+        :dpath ppath = ppathOp!;
+        addMods(ppath.spath);
+        fpath = file.cat(ppath.spath, [pth + ".ktt"]);
+        if (file.exists(fpath)) codeOp.push(file.read(fpath));
+      }
+      return svrp.mk({
+        Mods: arr.toJs(Mods, js.ws),
+        codeOp: arr.toJs(codeOp, js.ws)
+      });
+    }
+  }
+  throw "Value of rq (" + rq + ") is not valid";
+};
+
+

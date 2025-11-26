@@ -1,0 +1,51 @@
+// Copyright 07-Nov-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Data page.
+
+import "libmkt/cts" : mkCts;
+import "libdm/svrp";
+import "libdm/log";
+import "data/upds";
+import "data/upd";
+import "data/hupds";
+import "data/hupd";
+import "db";
+import "cts";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "b3", "b7", "all": {
+      :upds Upds = db.read();
+      return svrp.mk({
+        Dates: arr.toJs(Upds.Dates, js.ws),
+        up: switch (rq) {
+          "b3": upd.toJs(Upds.b3);
+          "b7": upd.toJs(Upds.b7);
+          default: upd.toJs(Upds.all);
+        },
+        cs: js.wo({}/s/)
+      });
+    }
+    "hb3", "hb7", "hall": {
+      :hupds Hupds = db.readHistoric();
+      return svrp.mk({
+        Dates: arr.toJs(Hupds.Dates, js.ws),
+        up: switch (rq) {
+          "hb3": hupd.toJs(Hupds.b3);
+          "hb7": hupd.toJs(Hupds.b7);
+          default: hupd.toJs(Hupds.all);
+        },
+        cs: js.wo({
+            initialCapital: js.wf(mkCts.initialCapital),
+            noLossMultiplicator: js.wf(mkCts.noLossMultiplicator),
+            daysLoss7: js.wi(cts.daysLoss7),
+            bet: js.wf(mkCts.bet)
+          })
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

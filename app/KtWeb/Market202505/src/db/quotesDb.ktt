@@ -1,0 +1,71 @@
+// Copyright 11-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Quotes data base
+
+import "libmkt/qs";
+import "libmkt/quotes";
+import "libmkt/quote";
+import "libmkt/volumes";
+import "libmkt/cts" : mcts;
+import "cts";
+
+_
+//: [|s]
+dpath = \ -> return file.cat(cts.dataPath(), ["quotes"]);;
+
+_
+//: [s|s]
+fpath = \nick -> return file.cat(dpath(), [nick + ".tb"]);;
+
+/// Initializes data base.
+/// Tables must be created manually.
+//: [|]
+init = \ ->  file.mkdir(dpath());;
+
+/// Retrurns registered nicks.
+//: [|[s]]
+nicks = \ -> return arr.map(
+    arr.filter(
+      file.dir(dpath()),
+      \:str f -> return f.ends(".tb");
+    ),
+    \f -> return f[:-3];
+  );;
+
+/// Return quotes a company file (from after to before).
+//: [s|s]
+read = \nick -> return file.read(fpath(nick));;
+
+/// Returns [. [quote], error] where
+///     - [quote] -> quotes of a company file (from after to before)
+///                  or [] if error.
+///     - error -> "" or message if error.
+///   nick: Company nick.
+//: [s|[. [(quote)]s]]
+readQs = \nick -> return qs.fromStr(mcts.historicQuotes, read(nick));;
+
+/// Write content of a company file.
+//: [ss|]
+write = \nick, data -> file.write(fpath(nick), data);;
+
+/// Returns Result (quotes) where
+///     - quotes -> quotes of a company file (from before to after)
+///   nick: Company nick.
+//: [s|[. [(quotes)]s]]
+readQuotes = \nick -> {
+  R = [. []/(quotes)/, ""];
+  try {
+    R[0] = [quotes.read(dpath(), [nick])];
+  } catch (e) {
+    R[1] = e;
+  }
+  return R;
+};
+
+/// Read volume average (in €) of serveral companies.
+/// Returns one value for each company. If data can not be read, the company
+/// value is set to 0.
+///   Cos    : Nicks of companies to read.
+//: [[s]|[f]]
+readVolumes = \Cos -> return volumes.read(dpath(), cts.quotesVolume, Cos);;

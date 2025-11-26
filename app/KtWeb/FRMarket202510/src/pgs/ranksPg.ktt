@@ -1,0 +1,72 @@
+// Copyright 11-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary page.
+
+import "libdm/svrp";
+import "libmkt/model";
+import "libmkt/models";
+import "data/rankE";
+import "data/ranks";
+import "data/irs";
+import "data/irsTable";
+import "db/resultsDb";
+import "db";
+import "cts";
+import "fns";
+
+_
+//: [ss|[(rankE)]]
+mkRank = \mdId, period -> {
+  :arr Ds = resultsDb.periodDates(mdId, period);
+  :arr Tbs = Ds.map(\dt ->
+   return irsTable.fromJs(resultsDb.read(mdId, period, dt));
+  );
+  :irsTable tb = Tbs.peek();
+  Irss = tb.Irss;
+  Params = []/[f]/;
+  for (ix = tb.Ixs) {
+    :irs r = Irss[ix];
+    if (r.yearSales() > cts.minSales) Params.push(r.Params);
+  }
+  return arr.map(Params[:10], \P -> return rankE.new(
+    P,
+    Tbs.map(\:irsTable tb -> {
+      rOp = arr.find(tb.Irss, \:irs r -> return r.Params == P;);
+      if (!rOp) return 1.0; // There is not parameter data.
+      :irs r = rOp!;
+      return r.yearAssets();
+    })
+  ););
+};
+
+//: [{s}|s]
+process = \:dic Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "models": {
+      :arr Models = fns.modelList();
+      :irs r = resultsDb.readBest(Models.map(\:model md -> return md.id;));
+      return svrp.mk({
+        Models : arr.toJs(Models, fns.modelNoDocToJs),
+        bestModel : fns.modelNoDocToJs(
+            Models.find(\:model md -> return md.id == r.mdId;)!
+          )
+      });
+    }
+    "ranks": {
+      mdId = js.rs(Rq\mdId);
+      Ps = cts.periods(); // = ["daily", "weekly", "monthly"]
+      rks = ranks.new(
+        mkRank(mdId, Ps[0]),
+        mkRank(mdId, Ps[1]),
+        mkRank(mdId, Ps[2])
+      );
+      return svrp.mk({
+        rks: rks.toJs()
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};
+

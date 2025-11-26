@@ -1,0 +1,54 @@
+// Copyright 30-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Fixed incomes portfolio operations.
+/// A fixed porfolio is a dictionary {id -> price}.
+
+/// Adds a new entry in place
+///   portfolio: Fixed incomes portfolio.
+///   id       : Issuance identifier.
+///   nominal  : Issuance nominal.
+//: [{i}si|]
+add = \:dic portfolio, id, nominal -> {
+  nOp = portfolio.get(id);
+  if (!!nOp) {
+    n = nOp!;
+    portfolio.put(id, n + nominal);
+    return;
+  }
+
+  portfolio.put(id, nominal);
+};
+
+/// Removes titles of a company and returns an error.
+/// Error is "" if nominal to retrive <= existent nominal.
+///   portfolio: Stocks portfolio.
+///   id       : Issuance identifier.
+///   nominal  : Issuance nominal.
+//: [{i}si|s]
+remove = \:dic portfolio, id, nominal -> {
+  idNOp = []/[.si]/;
+  for (k, v = portfolio) {
+    kId = str.split(k, "|")[0];
+    if (kId == id) {
+      idNOp.push([. k, v]);
+      break;
+    }
+  }
+  if (!idNOp) return id + " has not titles";
+  idN = idNOp!;
+  k = idN[0];
+  n = idN[1];
+  if (n < nominal) {
+    portfolio.remove(k);
+    return str.fmt(
+        "[%v] Try to remove titles valued in %v with only there are a value of %v",
+        [. id, nominal, n]
+      );
+  }
+
+  if (n > nominal) portfolio.put(k, n - nominal);
+  else portfolio.remove(k);
+  return "";
+};
+

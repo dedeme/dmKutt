@@ -1,0 +1,84 @@
+// Copyright 10-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Constants.
+
+import "libdm/svrp";
+
+/// Application name.
+appName = "Market";
+/// Application version.
+version = "202505";
+/// Data version.
+dataVersion = "202505";
+/// Data file.
+//: [|s]
+dataPath = \ -> return file.cat(svrp.dataRoot, [appName]);;
+
+/// Number of quotes used to calculate companies volume.
+quotesVolume = 60;
+
+// Server --------------------------------------------------------------------
+
+/// Server configuration stopped
+serverStopped = 0;
+
+/// Server configuration active
+serverActive = 1;
+
+/// Server configuration selected
+serverSelected = 2;
+
+/// Companies excluded of ibex.
+//: [|[s]]
+ibexExcluded = \ -> return ["GRF", "PUIG", "ANE"];;
+
+/// me nick.
+meNick = "<ME>";
+
+/// Ibex nick
+ibexNick = "<IBEX>";
+
+/// Euro index nick.
+euroNick = "<EURO>";
+
+/// All index nicks;
+//: [|[s]]
+ixNicks = \ -> return [ibexNick, euroNick];;
+
+// Scheduler -----------------------------------------------------------------
+
+/// Time to scheduler sleep (milliseconds)
+schedulerSleepTime = 900000; // 15'
+
+/// Time to scheduler sleep (milliseconds)
+schedulerWatchingTime = 120000; // 2'
+
+/// External servers (Bolsamania, Investing, etc.) delay in SECONDS
+serverDelay = 900; // 15 minutes
+
+/// Activity types
+sleeping, active =:;
+
+/// Hour to start to actFinalQuotes fase
+actFinalQuotes = 19;
+
+/// Hour to start actHistoric fase
+actHistoricStart = 4;
+
+// Models - Investors --------------------------------------------------------
+
+/// Number of quotes for accounting charts.
+accountingQuotes = 250;
+
+/// Delay days after a sale with losses (7 days per week).
+daysLoss7 = 63;
+
+/// Amount to invest in Ibex.
+ibexInvestment = 100000.0;
+
+/// Broker fees for fixed income operation in primary market.
+fixedFeeds = 0.003;
+
+/// Broker fees for fixed income operation in secundary market.
+fixedSFeeds = 0.002;

@@ -1,0 +1,59 @@
+// Copyright 01-Aug-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Cards table entry.
+
+import "cts";
+
+(card) [. s[f]i[s][[f]][[i]][[f]][[i]]i];
+
+/// Constructor.
+///   mdId         : Model id (MM, SSBB0, ...)
+///   Params       : Investor parameters (1 or 2 values with cts.ParamFmts decimals).
+///   paramsIx     : MMarket index of Params.
+///   Dates        : Dates of values.
+///   LastValues   : Values (option) in ratio.
+///   LastPositions: Position (option) for each date. First position is 0.
+///   AvgValues    : Values (option) in ratio.
+///   AvgPositions : Position (option) for each date. First position is 0.
+///   sales        : Sales average
+//: [. s[f]i[s][[f]][[i]][[f]][[i]]i]
+new : mdId, Params, paramsIx, Dates, LastValues, LastPositions,
+      AvgValues, AvgPositions, sales;
+
+//: [(card)|s]
+toJs = \o -> {
+  md = o[mdId];
+  Fmts = cts.ParamFmts()[md];
+  Ps = []/s/;
+  for (i, p = o[Params]) Ps.push(js.wf2(p, Fmts[i]));
+  return js.wa([
+    js.ws(md),
+    js.wa(Ps),
+    js.wi(o[paramsIx]),
+    arr.toJs(o[Dates], js.ws),
+    arr.toJs(o[LastValues], \nOp ->
+      return arr.toJs(nOp, \n -> return js.wf2(n, 6););),
+    arr.toJs(o[LastPositions], \nOp -> return arr.toJs(nOp, js.wi);),
+    arr.toJs(o[AvgValues], \nOp ->
+      return arr.toJs(nOp, \n -> return js.wf2(n, 6););),
+    arr.toJs(o[AvgPositions], \nOp -> return arr.toJs(nOp, js.wi);),
+    js.wi(o[sales])
+  ]);
+};
+
+//: [s|(card)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[0]),
+    arr.fromJs(A[1], js.rf),
+    js.ri(A[2]),
+    arr.fromJs(A[3], js.rs),
+    arr.fromJs(A[4], \ej -> return arr.fromJs(ej, js.rf);),
+    arr.fromJs(A[5], \ej -> return arr.fromJs(ej, js.ri);),
+    arr.fromJs(A[6], \ej -> return arr.fromJs(ej, js.rf);),
+    arr.fromJs(A[7], \ej -> return arr.fromJs(ej, js.ri);),
+    js.ri(A[8])
+  ];
+};

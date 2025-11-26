@@ -1,0 +1,101 @@
+// Copyright 02-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+// Global functions.
+
+import "libdm/log";
+import "libmkt/models";
+import "libmkt/model";
+import "libmkt/cts" : mkCts;
+import "data/card";
+import "data/idata";
+import "data/irs";
+import "data/irsTable";
+import "db/fleasDb";
+import "db/resultsDb";
+import "db";
+import "cts";
+
+/// Returns the number of week in year of 'tm'.
+/// Weeks start in Monday.
+///   tm: Date to process.
+//: [i|i]
+weekInYear = \:time tm -> {
+  day1 = time.newDate(1, 1, tm.year());
+  wdEn = time.weekday(day1);
+  wd = wdEn == 0 ? 6 : wdEn - 1;
+  dfDays = tm.dfDays(day1);
+  return (dfDays + wd) / 7;
+};
+
+/// Returns available models.
+//: [|[(model)]]
+modelList = \ -> {
+  Ids = dic.keys(cts.paramBases());
+  R = []/(model)/;
+  for (id = Ids) {
+    mdOp = models.get(id);
+    if (!mdOp) log.error("Model " + id + " not found.");
+    else R.push(mdOp!);
+  }
+  return R;
+};
+
+/// Returns 'md' JSONized without the 'doc' field.
+//: [(model)|s]
+modelNoDocToJs = \:model md -> return js.wa([
+    js.ws(md.id),
+    js.ws(md.name),
+    arr.toJs(md.ParamNames, js.ws),
+    arr.toJs(md.ParamTypes, js.wi)
+  ]);;
+
+/// Returns the MMarket index of an investor.
+///   md    : model indentifier.
+///   Params: Investor parameters.
+//: [s[f]|i]
+paramsToIx = \mdId, Params -> {
+  //: [fff|i]
+  ix1 = \base, inc, value -> {
+    r = math.ftoi((value - base) / inc);
+    dr = math.abs(base + inc * math.itof(r) - value);
+    dr1 = math.abs(base + inc * math.itof(r + 1) - value);
+    return  dr < dr1 ? r : r + 1;
+  };
+
+  Base = cts.paramBases()[mdId];
+  Inc = cts.paramBaseIncs()[mdId];
+  i0 = ix1(Base[0], Inc[0], Params[0]);
+  if (arr.size(Base) == 1) return i0;
+  return i0 * 20 + ix1(Base[1], Inc[1], Params[1]);
+};
+
+/// Makes investor card.
+///   period: one of cts.daily, cts.weekly or cts.monthly.
+///   md    : model indentifier.
+///   Params: Investor parameters in JSON format.
+//: [(model)[f]|(card)]
+mkCard = \:model md, Params -> {
+  :arr Invs = fleasDb.read(md.id);
+  invOp = Invs.find(\:idata i -> return i.Params == Params;);
+  if (!invOp) {
+    return card.new(
+      md, Params, paramsToIx(md.id, Params), 0.0,
+      0.0, 0.0, {}, {}, 0, 0, {}
+    );
+  }
+
+  :irsTable lastTb = irsTable.fromJs(resultsDb.readLast(md.id));
+  rOp = arr.find(lastTb.Irss, \:irs r -> return r.Params == Params;);
+  rV = [0.0];
+  if (!!rOp) {
+    :irs r = rOp!;
+    rV! = r.yearAssets() * mkCts.initialCapital;
+  }
+
+  :idata i = invOp!;
+  return card.new(
+    md, Params, paramsToIx(md.id, Params), rV!,
+    i.cash, i.withdrawals, i.Portfolio, i.Jail, i.days, i.sales, i.Orders
+  );
+};

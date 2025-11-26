@@ -1,0 +1,27 @@
+// Copyright 04-Sep-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Opportunity costs table.
+
+import "data/opp/oppTbEntry";
+import "cts";
+
+_
+//: [|s]
+fpath = \ -> return file.cat(cts.dataPath(), ["opp.tb"]);;
+
+/// Initialize table.
+//: [|]
+init = \ -> write([]/(oppTbEntry)/);;
+
+/// Reads table as JS string. Entries are sorted from before to after.
+//: [|s]
+readJs = \ -> return file.read(fpath());;
+
+/// Reads table. Entries are sorted from before to after.
+//: [|[(oppTbEntry)]]
+read = \ -> return arr.fromJs(file.read(fpath()), oppTbEntry.fromJs);;
+
+/// Writes table. Entries must be sorted from before to after.
+//: [[(oppTbEntry)]|]
+write = \:arr tb -> file.write(fpath(), tb.toJs(oppTbEntry.toJs));;

@@ -1,0 +1,27 @@
+// Copyright 04-Nov-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Data of company baned for rebuying.
+
+(rebuy) [. ss];
+
+/// Constructor.
+///   co  : Company nick.
+///   date: End date of ban (inclusive). Format YYYYMMDD.
+//: [. ss]
+new : co, date;
+
+//: [(rebuy)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[co]),
+    js.ws(o[date])
+  ]);;
+
+//: [s|(rebuy)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[0]),
+    js.rs(A[1])
+  ];
+};

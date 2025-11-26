@@ -1,0 +1,20 @@
+// Copyright 18-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Daily charts data base.
+
+import "daily/cosSelTb";
+import "daily/dailyChartsTb";
+import "cts";
+
+/// Data base file.
+//: [|s]
+dpath = \ -> return file.cat(cts.dataPath(), ["daily"]);;
+
+/// Initializes data base.
+//: [|]
+init = \ -> {
+  file.mkdir(dpath());
+  cosSelTb.init();
+  dailyChartsTb.init();
+};

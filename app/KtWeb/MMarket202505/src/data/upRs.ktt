@@ -1,0 +1,56 @@
+// Copyright 05-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Update result.
+
+import "libmkt/cts" : mcts;
+
+/// Type of update results.
+(upRs) [. fffff];
+
+/// Constructor.
+///   sales: Sales number.
+///   real : Assets ratio (1+profits) with current quotes.
+///   acc  : Assets ratio (1+profits) with accounting quote values,
+///   prof : Profits ratio (1+profits).
+///   pon  : Ponderation ratio.
+//: [.fffff]
+new0 : sales, real, acc, prof, pon;
+
+/// Constructor without points.
+///   sales: Sales number.
+///   real : Assets ratio (1+profits) with current quotes.
+///   acc  : Assets ratio (1+profits) with accounting quote values,
+///   prof : Profits ratio (1+profits).
+//: [ffff|(upRs)]
+new = \sales, real, acc, prof ->
+  return new0(sales, real, acc, prof, real * 0.4 + acc * 0.4 + prof * 0.2);;
+
+//: [(upRs)|s]
+toJs = \o -> return js.wa([
+    js.wf(o[sales]),
+    js.wf(o[real]),
+    js.wf(o[acc]),
+    js.wf(o[prof])
+  ]);;
+
+/// Serialization to send to javascript client
+//: [(upRs)|s]
+toJsClient = \o -> return js.wa([
+    js.wf(o[sales]),
+    js.wf(o[real]),
+    js.wf(o[acc]),
+    js.wf(o[prof]),
+    js.wf(o[pon])
+  ]);;
+
+//: [s|(upRs)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return new(
+    js.rf(A[sales]),
+    js.rf(A[real]),
+    js.rf(A[acc]),
+    js.rf(A[prof])
+  );
+};

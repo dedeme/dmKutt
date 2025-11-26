@@ -1,0 +1,20 @@
+// Copyright 29-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary page.
+
+import "libdm/svrp";
+import "db";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      return svrp.mk({
+        tb: db.readLast()
+      });
+    }
+  }
+  throw "Value of rq (" + rq + ") is not valid";
+};

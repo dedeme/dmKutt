@@ -1,0 +1,16 @@
+// Copyright 01-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+import "cts";
+
+TimeOver = []/b/;
+
+//: [|]
+init = \ -> TimeOver.push(false);;
+
+//: [|]
+run = \ -> {
+  sys.sleep(cts.clockTime);
+  sys.println("Clock: Time is over");
+  TimeOver! = true;
+};

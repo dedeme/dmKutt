@@ -1,0 +1,34 @@
+// Copyright 27-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Investors table.
+
+import "inv";
+
+(invTable) [. [(inv)][i][i]];
+
+/// Constructor.
+///   Invs  : Table investors.
+///   LastIx: Index from greater to lesser of last investor results.
+///   AvgIx : Index from greater to lesser of average investor results.
+/// NOTE: Invs, LastIx and AvgIx have the same number of elements.
+//: [. [(inv)][i][i]]
+new : Invs, LastIx, AvgIx;
+
+//: [(invTable)|s]
+toJs = \o -> return js.wa([
+    arr.toJs(o[Invs], inv.toJs),
+    arr.toJs(o[LastIx], js.wi),
+    arr.toJs(o[AvgIx], js.wi)
+  ]);;
+
+
+//: [s|(invTable)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    arr.fromJs(A[0], inv.fromJs),
+    arr.fromJs(A[1], js.ri),
+    arr.fromJs(A[2], js.ri)
+  ];
+};

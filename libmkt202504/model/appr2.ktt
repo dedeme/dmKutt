@@ -1,0 +1,108 @@
+// Copyright 06-Apr-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Approximations (2) model.
+
+import "../model";
+import "doc/appr2Doc";
+
+/// Returns a new 'appr2' model.
+//: [|(model)]
+new = \ -> return model.new(
+    "APRX2",
+    "Aproximaciones sucesivas (2)",
+    appr2Doc.text,
+    ["Inicio", "Aprox."],
+    [model.percParam, model.percParam]
+  );;
+
+/// Returns a new [. isSold, reference, closes array] of one company,
+/// where:
+/// state -> is true if the company is not in stock.
+/// reference -> is the new company reference.
+/// closes -> Closes used for calculating references.
+///   Ref   : Reference data of previous calculus
+///           ([. state, reference, closes array]).
+///           'reference' is equals -1 when it is not fixed the initial one.
+///   cl    : Current close.
+///   Params: Model parameters.
+//: [[. bf[f]]f[f] | [. bf[f]]]
+ref = \Ref, cl, Params -> {
+  start = Params[0];
+  upStart = 1.0 + start;
+  downStart = 1.0 - start;
+  incr = Params[1];
+
+  isSold = Ref[0];
+  rf = Ref[1];
+  // Cls = Ref[2];
+  if (rf < 0.0) return [. false, cl * downStart, []/f/];
+
+  if (isSold) {
+    if (cl > rf) {
+      return [. false, cl * downStart, []/f/];
+    } else {
+      r1 = rf - (rf - cl) * incr;
+      r2 = cl * upStart;
+      return [. true, r1 < r2 ? r1 : r2, []/f/];
+    }
+  } else {
+    if (cl < rf) {
+      return [. true, cl * upStart, []/f/];
+    } else {
+      r1 = rf + (cl - rf) * incr;
+      r2 = cl * downStart;
+      return [. false, r1 > r2 ? r1 : r2, []/f/];
+    }
+  }
+};
+
+//: [ [[f]][f] | [[f]] ]
+refs = \:arr Closes, :arr Params -> {
+  start = Params[0];
+  upStart = 1.0 + start;
+  downStart = 1.0 - start;
+  incr = Params[1];
+  :arr Cls0 = Closes[0];
+  ndates = Closes.size();
+  ncos = Cls0.size();
+
+  IsSolds = arr.new(false, ncos);
+  Refs = []/f/;
+  for (cl = Cls0) Refs.push(cl * downStart);
+
+  Refs2 = Refs.copy();
+  AllRefs = arr.new(Refs2, ndates);
+  for (idate = 1:ndates) {
+    :arr ClosesR = Closes.get(idate);
+
+    for (ico = 0:ncos) {
+      c = ClosesR.get(ico);
+      rf = Refs.get(ico);
+
+      if (IsSolds.get(ico)) {
+        if (c > rf) {
+          IsSolds.set(ico, false);
+          Refs.set(ico, c * downStart);
+        } else {
+          r1 = rf - (rf - c) * incr;
+          r2 = c * upStart;
+          if (r1 < r2) Refs.set(ico, r1);
+          else Refs.set(ico, r2);
+        }
+      } else {
+        if (c < rf) {
+          IsSolds.set(ico, true);
+          Refs.set(ico, c * upStart);
+        } else {
+          r1 = rf + (c - rf) * incr;
+          r2 = c * downStart;
+          if (r1 > r2) Refs.set(ico, r1);
+          else Refs.set(ico, r2);
+        }
+      }
+    }
+    AllRefs.set(idate, Refs.copy());
+  }
+  return AllRefs;
+};

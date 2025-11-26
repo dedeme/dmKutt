@@ -1,0 +1,41 @@
+// Copyright 15-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Cgi response maker.
+
+/// Data root of KtWeb server.
+/// Must be the same indicated in KtWeb/global.
+dataRoot = "/dm/KtWeb/dmcgi";
+_
+comKeyV = []/s/;
+
+/// Initialize responses.
+///   comKey: Comunications key.
+//: [s|]
+init = \comKey -> comKeyV.push(comKey);;
+
+/// Returns a generic response to send to client.
+///   Rp: Response. It is a 'JSON' object.
+///       Example of reponse:
+///        {"error": js.ws(msg)}
+//: [{s}|s]
+mk = \Rp -> return cryp.encode(comKeyV!, js.wo(Rp));;
+
+/// Returns an empty response.
+//: [|s]
+mkEmpty = \ -> return mk({}/s/);;
+
+/// Returns a "data base out of date" response:
+///   {"dbKey": ""}
+//: [|s]
+mkOutdated = \ -> return mk({dbKey: js.ws("")});;
+
+/// Returns a response '{error: js.ws(msg), ...}'
+///   msg : Error message.
+///   rest: Rest of response.
+//: [s{s}|s]
+mkError = \msg, :dic rest -> {
+  :dic Rp = rest.copy();
+  Rp.put("error", js.ws(msg));
+  return mk(Rp);
+};

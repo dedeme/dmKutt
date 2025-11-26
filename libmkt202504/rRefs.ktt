@@ -1,0 +1,31 @@
+// Copyright 24-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Real references data.
+
+/// Real references type.
+(rRefs) [. [f]if];
+
+/// Constructor.
+///
+/// A start point is the index in closes of the date when a change of position
+/// sold-bougth happens.
+///
+/// The first change of postion registered must be, at maximun,
+/// 'cts.realReferenceDateIx' days before the last closes date.
+///
+/// The first calculus of a rRefs start with 'index = -1' and 'reference = -1.0'.
+///
+/// After calculating new real references from an array of closes, a start point
+/// and its reference value, if a new start point of calculus is found, it is
+/// retuned in 'dateIx' and its reference value in 'rref'.
+///
+/// In case of not finding a new start point, values of index and reference do not
+/// change, but they are '-1' and '-1.0'. In such case both values are set to
+/// valid values.
+///
+///   Refs   : Real references.
+///   dateIx : Index of closes corresponding to the 'rref' date.
+///   rref: Real reference value corresponding to the close.
+//: [. [f]if]
+new : Refs, dateIx, rref;

@@ -1,0 +1,28 @@
+// Copyright 26-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Progam constants.
+
+import "libdm/svrp";
+
+appName = "News";
+
+/// Application version.
+version = "202505";
+
+/// Data base path
+//: [|s]
+dbPath = \ -> return file.cat(svrp.dataRoot, [appName]);;
+
+/// Log path
+//: [|s]
+logPath = \ -> return file.cat(dbPath(), ["log.tb"]);;
+
+/// Maximum of entries in historic new table.
+maxHistoric = 50_000;
+
+/// Maximum days of keeping a new in thje current news table.
+maxDays = 30;
+
+
+

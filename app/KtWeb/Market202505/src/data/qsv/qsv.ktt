@@ -1,0 +1,51 @@
+// Copyright 18-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Quotes server.
+
+/// Quotes server type.
+(qsv) [. ssiii];
+
+/// Server states
+/// Values for 'withCurrent', 'withDaily' and 'withHistoric'.
+active, inactive, undef =;
+
+/// Constructor.
+///   id           : Server identifier.
+///   name         : Server name.
+///   withCurrent  : If server can read current 'ticks'.
+///                  ('active', 'inactive' or 'undef')
+///   withDaily    : If server can read daily quotes.
+///                  ('active', 'inactive' or 'undef')
+///   withHistoric : If server can read historic quotes.
+///                  ('active', 'inactive' or 'undef')
+/// \s,s,i,i,i -> <qsv>
+//: [. ssiii]
+new : id, name, withCurrent, withDaily, withHistoric;
+
+/// Read Rq from 'ppmarket'.
+/// Returns a Result of JSONized object.
+///   Rq: JSON object.
+//: [{s}|[. [s]s]]
+rq = \Rq -> {
+  rOp, err = sys.cmd("ppmarket", [b64.encode(js.wo(Rq))]);
+  return err == "" ? [. [str.rtrim(rOp!)], ""] : [. []/s/, err];
+};
+
+/// Remove temporary files of puppeteer in '/tmp'.
+//: [|]
+clearTmp = \ -> {
+  Prefixes = [
+    ".org.chromium.Chromium.",
+    "puppeteer_dev_chrome_profile-"
+  ];
+  for (name = file.dir("/tmp")) {
+    if (Prefixes.any(\p -> return str.starts(name, p);)) {
+      path = "/tmp/" + name;
+      now = time.toStr(time.now());
+      tm = time.toStr(file.tm(path));
+      if (tm < now) file.del(path);
+    }
+  }
+};
+

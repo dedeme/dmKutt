@@ -1,0 +1,20 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Trading data base.
+
+import "trading/closesTb";
+import "trading/refsTb";
+import "cts";
+
+/// Data base file.
+//: [|s]
+dpath = \ -> return file.cat(cts.dataPath(), ["trading"]);;
+
+/// Initializes data base.
+//: [|]
+init = \ -> {
+  file.mkdir(dpath());
+  closesTb.init();
+  refsTb.init();
+};

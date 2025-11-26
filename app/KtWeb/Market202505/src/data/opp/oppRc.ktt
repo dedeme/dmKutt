@@ -1,0 +1,40 @@
+// Copyright 04-Sep-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Opportunity costs record.
+
+/// Opportuity costs record type
+(oppRc) [. sbifff];
+
+/// Constructor. Do not use directory, use 'new'.
+///   nick  : Company nick
+///   isBuy : 'true' if the last operation was a buy.
+///   stocks: Number of bought or sold stocks.
+///   price : Operation price.
+///   qt    : Current quote.
+///   profits: 'current - operation' in buys. 'operation - current' in sales.
+//: [. sbifff]
+new0 : nick, isBuy, stocks, price, qt, profits;
+
+/// Constructor.
+///   nick  : Company nick
+///   isBuy : 'true' if the last operation was a buy.
+///   stocks: Number of bought or sold stocks.
+///   price : Operation price.
+///   qt    : Current quote.
+//: [sbiff|(oppRc)]
+new = \nick, isBuy, stocks, price, qt -> return
+  [.  nick, isBuy, stocks, price, qt,
+      math.itof(stocks) * (isBuy ? qt - price : price - qt)
+  ];;
+
+//: [(oppRc)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[nick]),
+    js.wb(o[isBuy]),
+    js.wi(o[stocks]),
+    js.wf(o[price]),
+    js.wf(o[qt]),
+    js.wf(o[profits])
+  ]);;
+

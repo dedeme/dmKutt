@@ -1,0 +1,76 @@
+// Copyright 03-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Investor results table entry.
+
+import "cts";
+
+(irs) [. s[f]ifi];
+
+/// Constructor.
+///   mdId    : Model id (MM, SSBB0, ...)
+///   Params  : Investor parameters (1 or 2 values with cts.ParamFmts decimals).
+///   days    : Number of active days.
+///   assets  : Assets (Base 1, six decimals)
+///   sales   : Number of sales.
+//: [. s[f]ifi]
+new : mdId, Params, days, assets, sales;
+
+/// Returns the investor identifier.
+//: [(irs)|s]
+id = \i -> {
+  md = i[mdId];
+  Fmts = cts.paramFmts()[md];
+  Ps = []/s/;
+  for (i, p = i[Params]) Ps.push(js.wf2(p, Fmts[i]));
+  return md + js.wa(Ps);
+};
+
+/// Returns the 'base 1' yearly value of i[assets].
+//: [(irs)|f]
+yearAssets = \i -> {
+  dif = i.assets - 1.0;
+  return 1.0 + dif * math.itof(cts.ydays) / math.itof(i.days);
+};
+
+/// Returns the yearly value of i[sales].
+//: [(irs)|i]
+yearSales = \i ->
+  return math.ftoi(math.itof(i.sales * cts.ydays) / math.itof(i.days));;
+
+/// Returns the investor parameters JSONized.
+//: [(irs)|s]
+paramsToStr = \i -> {
+  md = i[mdId];
+  Fmts = cts.paramFmts()[md];
+  Ps = []/s/;
+  for (i, p = i[Params]) Ps.push(js.wf2(p, Fmts[i]));
+  return js.wa(Ps);
+};
+
+//: [(irs)|s]
+toJs = \o -> {
+  md = o[mdId];
+  Fmts = cts.paramFmts()[md];
+  Ps = []/s/;
+  for (i, p = o[Params]) Ps.push(js.wf2(p, Fmts[i]));
+  return js.wa([
+    js.ws(md),
+    js.wa(Ps),
+    js.wi(o[days]),
+    js.wf2(o[assets], 6),
+    js.wi(o[sales])
+  ]);
+};
+
+//: [s|(irs)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[0]),
+    arr.fromJs(A[1], js.rf),
+    js.ri(A[2]),
+    js.rf(A[3]),
+    js.ri(A[4])
+  ];
+};

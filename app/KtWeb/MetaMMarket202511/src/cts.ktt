@@ -1,0 +1,29 @@
+// Copyright 04-Nov-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Constants.
+
+import "libdm/svrp";
+
+/// Application name.
+appName = "MetaMMaket";
+/// Application version.
+version = "202511";
+/// Data version.
+dataVersion = "202511";
+/// Data file.
+//: [|s]
+dataPath = \ -> return file.cat(svrp.dataRoot, [appName]);;
+
+/// Delay days after a sale with losses (7 days per week).
+daysLoss7 = 63;
+
+// External paths --------------------------------------------------------------
+
+/// Directory of historic quotes tables type 'NICK.tb'.
+quotesPath = "/dm/KtWeb/dmcgi/Market/quotes";
+/// Table with companies data.
+cosPath = "/dm/KtWeb/dmcgi/Market/cos.tb";
+/// Directory of historic daily results of MMarket.
+mmarketPath = "/dm/KtWeb/dmcgi/MMaket/daily";
+

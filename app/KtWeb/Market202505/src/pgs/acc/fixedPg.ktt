@@ -1,0 +1,43 @@
+// Copyright 23-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Fixed incomes page.
+
+import "libdm/svrp";
+import "libdm/log";
+import "data/acc/ann";
+import "data/acc/opr";
+import "db/acc/diariesDb";
+import "db/acc/fxEquityTb";
+import "db/acc/currentFxTb";
+import "db/acc/fxAuctionsTb";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      currentYear = time.year(time.now());
+      Anns = []/(ann)/;
+      for (y = diariesDb.investorYears()) {
+        if (currentYear - math.stoi(y)! >= 10) continue;
+        for (:ann a = diariesDb.investorAnns(y)) {
+          :opr op = a.op;
+          tp = op.type();
+          switch (tp) {
+            opr.cfxT,
+            opr.ofxT,
+            opr.osfxT: Anns.push(a);
+          }
+        }
+      }
+      return svrp.mk({
+        fxEquity: js.wi(fxEquityTb.read()),
+        Anns : Anns.toJs(ann.toJs),
+        Vals : currentFxTb.readJs(),
+        Auctions: fxAuctionsTb.readJs()
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

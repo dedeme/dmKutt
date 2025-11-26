@@ -1,0 +1,37 @@
+// Copyright 15-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Main page.
+
+import "libdm/svrp";
+import "data/conf";
+import "data/dpath";
+import "db";
+import "db/confTb";
+import "db/pathsTb";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      return svrp.mk({
+        dbKey: js.ws(db.readKey()),
+        cf: conf.toJs(confTb.read()),
+        Paths: arr.toJs(pathsTb.read(), dpath.toJs)
+      });
+    }
+    "savePath": {
+      dbKey = js.rs(Rq\dbKey);
+      newDbKey = db.checkKey(dbKey);
+      if (newDbKey == "") return svrp.mkOutdated();
+
+      npath = js.rs(Rq\npath);
+      :conf cf = confTb.read();
+      confTb.write(conf.new(npath, cf.showAll));
+
+      return svrp.mk({ dbKey: js.ws(newDbKey) });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

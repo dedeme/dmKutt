@@ -1,0 +1,46 @@
+// Copyright 04-Nov-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Data of updaters for every system.
+
+import "cts";
+import "upd";
+
+(upds) [. [s](upd)(upd)(upd)];
+
+/// Constructor.
+/// NOTE: The field 'Historic' of each system (upd) has the same number of
+///       elements as 'Dates'.
+///   Dates: Historic dates in format YYYYMMDD.
+///   b3   : Data of the Best 3 system
+///   b7   : Data of the Best 7 system.
+///   all  : Data of the All Models system.
+//: [. [s](upd)(upd)(upd)]
+new : Dates, b3, b7, all;
+
+/// Empty constructor.
+/// Returns one entry for each system.
+///   dt: Initial date in format YYYYMMDD.
+//: [s|(upds)]
+newDefault = \dt -> return [.
+    [dt], upd.newDefault(), upd.newDefault(), upd.newDefault()
+  ];;
+
+//: [(upds)|s]
+toJs = \o -> return js.wa([
+    arr.toJs(o[Dates], js.ws),
+    upd.toJs(o[b3]),
+    upd.toJs(o[b7]),
+    upd.toJs(o[all])
+  ]);;
+
+//: [s|(upds)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    arr.fromJs(A[0], js.rs),
+    upd.fromJs(A[1]),
+    upd.fromJs(A[2]),
+    upd.fromJs(A[3])
+  ];
+};

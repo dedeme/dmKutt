@@ -1,0 +1,67 @@
+// Copyright 10-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Program main.
+
+import "libdm/log";
+import "libdm/svrp";
+import "pgs/home/homePg";
+import "pgs/settingsHub";
+import "pgs/accHub";
+import "pgs/oppHub";
+import "pgs/daily/dailyPg";
+import "pgs/verification/verificationPg";
+import "cts";
+import "db";
+import "test";
+import "sch";
+
+{
+  help = """
+    Use Market [help | version | init | test | start | key rq]
+    where
+      help   : Shows this message.
+      version: Shows program version.
+      init   : Initializes program.
+               Must be called only the first time that the program is called.
+      test   : Application testing.
+      start  : Start server.
+      key rq : Requests 'rq' with 'key'. (Sent by browser)
+    """;
+
+  log.init(file.cat(cts.dataPath(), ["log.tb"]), 100);
+
+
+  :arr Args = sys.args();
+
+  if (Args.size() == 1) {
+    switch (Args[0]) {
+      "version": sys.println(cts.version);
+      "init": db.init();
+      "test": test.run();
+      "start": sch.start();
+      default: sys.println(help);
+    }
+    return;
+  }
+
+  if (Args.size() != 2) {
+    sys.println(help);
+    return;
+  }
+
+  key = Args[0];
+  svrp.init(key);
+
+  :dic Rq = js.ro(Args[1]);
+  module = js.rs(Rq\module);
+  sys.print(switch(module) {
+    "Home"        : homePg.process(Rq);
+    "Settings"    : settingsHub.process(Rq);
+    "Acc"         : accHub.process(Rq);
+    "DailyPg"     : dailyPg.process(Rq);
+    "Opp"         : oppHub.process(Rq);
+    "Verification": verificationPg.process(Rq);
+    default: throw([]/s/, "Value of source (" + module + ") is not valid");
+  });
+}

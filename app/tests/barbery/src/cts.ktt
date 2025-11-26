@@ -1,0 +1,9 @@
+// Copyright 01-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+
+clockTime = 40000;
+
+clientMakerTime = 2500;
+
+barberTime = 3000;

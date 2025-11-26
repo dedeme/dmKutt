@@ -1,0 +1,102 @@
+// Copyright 22-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Servers page.
+
+import "libdm/svrp";
+import "libdm/log";
+import "data/qsvs";
+import "data/qsv/qsv";
+import "db/svCodesTb";
+import "db";
+
+import "net/readCurrent";
+import "net/readDaily";
+import "net/readHistoric";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      selected = js.rs(Rq\selected);
+
+      return svrp.mk({
+        dbKey: js.ws(db.readKey()),
+        Svs: arr.toJs(qsvs.list(), \:qsv sv -> return js.wa([
+            js.ws(sv.id),
+            js.ws(sv.name),
+            js.wi(sv.withCurrent),
+            js.wi(sv.withDaily),
+            js.wi(sv.withHistoric)
+          ]);),
+        Codes: selected == "" ? "{}" : dic.toJs(svCodesTb.read(selected), js.ws)
+      });
+    }
+    "setCodes": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      svId, Codes = [. js.rs(Rq\svId), dic.fromJs(Rq\Codes, js.rs)];
+      svCodesTb.write(svId, Codes);
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    "testCurrent": {
+      svId = js.rs(Rq\svId);
+      withErrorsV = [false];
+      withWarningsV = [false];
+
+      , err = readCurrent.runServer(svId);
+      if (err != "") {
+        log.error(err);
+        withErrorsV! = true;
+      }
+
+      return svrp.mk({
+        withErrors: js.wb(withErrorsV!),
+        withWarnings: js.wb(withWarningsV!)
+      });
+    }
+    "testDaily": {
+      svId = js.rs(Rq\svId);
+      withErrorsV = [false];
+      withWarningsV = [false];
+
+      Qs, Ws = readDaily.runServer(svId);
+      if (!!Ws) {
+        for (w = Ws) log.warning(w);
+        withWarningsV! = true;
+      }
+      if (!Qs) {
+        log.error("Quotes of " + svId + " can not be read");
+        withErrorsV! = true;
+      }
+
+      return svrp.mk({
+        withErrors: js.wb(withErrorsV!),
+        withWarnings: js.wb(withWarningsV!)
+      });
+    }
+    "testCo": {
+      svId, nick = [. js.rs(Rq\svId), js.rs(Rq\nick)];
+      withErrorsV = [false];
+      withWarningsV = [false];
+
+      Qs, Ws = readHistoric.oneServer(svId, nick);
+      if (!!Ws) {
+        for (w = Ws) log.warning(w);
+        withWarningsV! = true;
+      }
+      if (!Qs) {
+        log.error("Quotes can no be read");
+        withErrorsV! = true;
+      }
+
+      return svrp.mk({
+        withErrors: js.wb(withErrorsV!),
+        withWarnings: js.wb(withWarningsV!)
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

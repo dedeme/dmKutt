@@ -1,0 +1,19 @@
+// Copyright 04-Sep-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Oportunity costs charts page.
+
+import "libdm/svrp";
+import "data/opp/oppTbEntry";
+import "db/oppTb";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  return switch (rq) {
+    "idata": svrp.mk({
+        AllEs: arr.toJs(oppTb.read(), oppTbEntry.toJs)
+      });
+    default: throw([]/s/, "Value of source (" + rq + ") is not valid");
+  };
+};

@@ -1,0 +1,26 @@
+// Copyright 30-Mar-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary data.
+
+import "smE";
+
+/// Summary type
+(sm) [. [(smE)][(smE)][(smE)][(smE)]];
+
+/// Constructor.
+///   pts : Points summary,
+///   real: Summary of assets calculated with current prices
+///   acc : Summary of assets calculated with buy prices.
+///   prof: Profits summary.
+//: [. [(smE)][(smE)][(smE)][(smE)]]
+new : Pon, Real, Acc, Prof;
+
+//: [(sm)|s]
+toJs = \o -> return js.wa([
+    arr.toJs(o[Pon], smE.toJs),
+    arr.toJs(o[Real], smE.toJs),
+    arr.toJs(o[Acc], smE.toJs),
+    arr.toJs(o[Prof], smE.toJs)
+  ]);;
+

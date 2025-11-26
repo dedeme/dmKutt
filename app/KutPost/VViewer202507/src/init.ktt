@@ -1,0 +1,177 @@
+// Copyright 21-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Database initializer.
+/// It can be run at any time, but is mandatory before the first calling of
+/// client.
+
+import "cts";
+import "db";
+_
+updatedV = []/i/;
+_
+topUpdated = 300;
+
+/// Starts initilization.
+//: [|]
+run = \ -> {
+  db.init();
+
+  root = cts.originRoot;
+  if (!file.exists(root)) {
+    sys.printError("Video origin '" + cts.originRoot + "' not found");
+    return;
+  }
+
+  file.cd(root);
+
+//  sys.test (file.exists("videos2"), true);
+//  for (d = file.dir("videos2")) sys.println(d);
+//  if (true) return;
+
+  updatedV.push(0);
+
+  file.mkdir("videos2");
+
+  // Create new target directories.
+  :arr Sdirs = file.dir("videos");
+  Sdirs.filterIn(\d -> return
+      file.isDirectory(file.cat("videos", [d])) &
+      str.index(d, "collections") == -1
+    ;);
+  for (sd = Sdirs) {
+    dpath = file.cat("videos", [sd]);
+    dtpath = file.cat("videos2", [sd]);
+    file.mkdir(dtpath);
+
+    updateVideosDirectory(dpath, dtpath);
+    if (updatedV! >= topUpdated) break;
+  }
+
+  // Remove obsolete target directories.
+  :arr Tfiles = file.dir("videos2");
+  for (td = Tfiles) {
+    dpath = file.cat("videos", [td]);
+    dtpath = file.cat("videos2", [td]);
+    if (!file.exists(dpath))
+      file.del(dtpath);
+  }
+
+  updateSnapshots("videos2", cts.snapshotPath());
+
+};
+
+
+// ---------------------------------------------------------
+
+// Update videos directory
+_
+//: [ss|]
+updateVideosDirectory = \source, target -> {
+
+  //: [ss|]
+  removeObsoleteVideos = \source, target -> {
+    Ids = []/s/;
+    for (name = file.dir(source)) {
+      ext = file.extension(name);
+      len = str.len(ext);
+      if (len > 1) Ids.push(name[:-len]);
+    }
+
+    for (name = file.dir(target)) {
+      path = file.cat(target, [name]);
+      if (file.isDirectory(path)) {
+        spath = file.cat(source, [name]);
+        if (!file.isDirectory(spath))
+          file.del(path);
+        else
+          removeObsoleteVideos(spath, path);
+      } else {
+        if (!Ids.any(\id -> return id == name[:-4];))
+          file.del(path);
+      }
+    }
+  };
+
+
+  Snames = file.dir(source);
+  Ids = []/s/;
+  for (name = Snames) {
+    ext = file.extension(name);
+    len = str.len(ext);
+    if (len < 2) {
+      dpath = file.cat(source, [name]);
+      if (file.isDirectory(dpath)) {
+        dtpath = file.cat(target, [name]);
+        file.mkdir(dtpath);
+        updateVideosDirectory(dpath, dtpath);
+        if (updatedV! >= topUpdated) break;
+      }
+      continue; // Directory or Bad extension
+    }
+    id = name[:-len];
+    Ids.push(id);
+    spath = file.cat(source, [name]);
+    tpath = file.cat(target, [id + ".mp4"]);
+
+    if (file.exists(tpath)) continue; // Video already updated
+
+    sys.println("[" + math.itos(updatedV! + 1) + "] " + spath + " ->");
+    sys.println("  " + tpath);
+    , err = sys.cmd("ffmpeg", ["-loglevel", "fatal", "-i", spath, tpath]);
+    sys.println("  " + (err == "" ? "ok" : err));
+    updatedV! += 1;
+    if (updatedV! >= topUpdated) break;
+  }
+
+  removeObsoleteVideos(source, target);
+};
+
+// Update snapshots
+_
+//: [ss|]
+updateSnapshots = \videosDir, snapshotsDir -> {
+
+  //: [ss|]
+  removeObsoleteSnapshots = \videosDir, snapshotsDir -> {
+    Ids = []/s/;
+    for (name = file.dir(videosDir)) if (str.ends(name, ".mp4"))
+      Ids.push(name[:-4]);
+
+    for (name = file.dir(snapshotsDir)) {
+      path = file.cat(snapshotsDir, [name]);
+      if (file.isDirectory(path)) {
+        spath = file.cat(videosDir, [name]);
+        if (!file.isDirectory(spath))
+          file.del(path);
+        else
+          removeObsoleteSnapshots(spath, path);
+      } else {
+        if (!Ids.any(\id -> return id == name[:-4];))
+          file.del(path);
+      }
+    }
+  };
+
+  for (v = file.dir(videosDir)) {
+    vpath = file.cat(videosDir, [v]);
+    spath = file.cat(snapshotsDir, [v]);
+    if (file.isDirectory(vpath)) {
+      file.mkdir(spath);
+      updateSnapshots(vpath, spath);
+    } else {
+      vid = v[:-4];
+      sfile = file.cat(snapshotsDir, [vid + ".png"]);
+      if(!file.exists (sfile))
+        sys.cmd("ffmpeg", [
+          "-i", vpath, "-vf", "thumbnail=900", "-frames:v", "1", "-y", sfile
+        ]);
+
+      pondFile = file.cat(snapshotsDir, [vid + ".txt"]);
+      if(!file.exists (pondFile))
+        file.write(pondFile, "0");
+    }
+  }
+
+  removeObsoleteSnapshots(videosDir, snapshotsDir);
+};

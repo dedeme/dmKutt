@@ -1,0 +1,341 @@
+// Copyright 04-Nov-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Update data base.
+
+import "libdm/log";
+import "libmkt/quotes";
+import "libmkt/models";
+import "libmkt/model";
+import "libmkt/order";
+import "libmkt/broker";
+import "libmkt/strategy";
+import "libmkt/stRs";
+import "libmkt/cts" : mkCts;
+import "mmarket/data/evE";
+import "mmarket/data/upRs";
+import "mmarket/cts" : mmCts;
+import "mmarket/fns";
+import "data/upd";
+import "data/upds";
+import "data/hupd";
+import "data/hupds";
+import "data/mmodel";
+import "data/morder";
+import "data/pfEntry";
+import "data/rebuy";
+import "db";
+import "cts";
+
+/// Executes updater.
+//: [|]
+run = \ -> {
+  CoSels = arr.fromJs(
+    js.ra(file.read(cts.cosPath))[1],
+    \j -> {
+      A = js.ra(j);
+      return [. js.rs(A[0]), js.rb(A[1])];
+    }
+  );
+  Cos = arr.map(CoSels.filter(\E -> return E[1];), \E -> return E[0];);
+  Cos.sort(\d1, d2 -> return d1 < d2;);
+  qts = quotes.read(cts.quotesPath, Cos);
+
+  date = arr.peek(qts.Dates);
+  Models = []/(mmodel)/;
+  for (:model md = models.list()) {
+    dir = file.cat(cts.mmarketPath, [date]);
+    if (!file.exists(dir)) {
+      log.warning("Evaluation for date " + date + " not available in MMarket");
+      return;
+    }
+    tb = file.cat(dir, [md.id]);
+    if (!file.exists(tb)) {
+      log.error("Evaluation table '" + tb + " not found");
+      return;
+    }
+    , i, :evE e = arr.reduce(
+      arr.fromJs(file.read(tb), evE.fromJs),
+      [. 0, 0, -1.0],
+      \r, :evE e -> {
+        :upRs rs = e.avg;
+        return rs.sales < mmCts.minSales | rs.pon <= r[2]
+          ? [. r[0] + 1, r[1], r[2]]
+          : [. r[0] + 1, r[0], rs.pon];
+      }
+    );
+
+    Params = fns.ixToParams(md.id, i);
+    Orders = strategy.open(md, qts, md.refs(qts.Closes, Params))[stRs.Orders];
+    Models.push(mmodel.new(md.id, e, Orders));
+  }
+  Models.sort(\:mmodel m1, :mmodel m2 -> return m1.weight > m2.weight;);
+
+  B3Mds = []/(mmodel)/;
+  b3TT = arr.reduce(Models[:3], 0.0, \r, :mmodel m -> return r + m.weight;);
+  for (:mmodel m = Models[:3])
+    B3Mds.push(mmodel.new(m.id, m.weight/b3TT, arr.copy(m.Orders)));
+
+  B7Mds = []/(mmodel)/;
+  b7TT = arr.reduce(Models[:7], 0.0, \r, :mmodel m -> return r + m.weight;);
+  for (:mmodel m = Models[:7])
+    B7Mds.push(mmodel.new(m.id, m.weight/b7TT, arr.copy(m.Orders)));
+
+  AllMds = []/(mmodel)/;
+  allTT = Models.reduce(0.0, \r, :mmodel m -> return r + m.weight;);
+  for (:mmodel m = Models)
+    AllMds.push(mmodel.new(m.id, m.weight/allTT, arr.copy(m.Orders)));
+
+  Mds = [B3Mds, B7Mds, AllMds];
+
+  runCurrent(Cos, qts, Mds);
+  runHistoric(Cos, qts, Mds);
+};
+
+// Executes current updater.
+_
+//: [[s](quotes)[[(mmodel)]]|]
+runCurrent = \:arr Cos, :quotes qts, :arr AllMds -> {
+  :upds updsTb = db.read();
+  Upds = [updsTb.b3, updsTb.b7, updsTb.all];
+
+  CoSels = arr.fromJs(
+    js.ra(file.read(cts.cosPath))[1],
+    \j -> {
+      A = js.ra(j);
+      return [. js.rs(A[0]), js.rb(A[1])];
+    }
+  );
+  AllCos = CoSels.map(\E -> return E[0];); // Necessary when changing selected comapnies.
+  AllQts = quotes.read(cts.quotesPath, AllCos);
+
+  date = arr.peek(qts.Dates);
+  // RETURN IF DATE ALREADY WAS UPDATED.
+  if (date <= arr.peek(updsTb.Dates)) {
+    log.warning("Update current of " + date + " already done");
+    return;
+  }
+
+  Thrs = []/<thread>/;
+  iV = [0];
+  while (iV! < Upds.size()) {
+    i = iV!;
+    Thrs.push(thread.start(\ -> {
+      Mds = AllMds[i];
+      :upd up = Upds[i];
+      iV! += 1;
+
+      //  CHECK
+      arr.filterIn(up.Rebuys, \:rebuy e -> return Cos.any(\c -> return c == e.co;););
+      arr.filterIn(up.Orders, \:morder e -> return Cos.any(\c -> return c == e.co;););
+      arr.filterIn(up.Portfolio, \:pfEntry e -> {
+        if (Cos.any(\c -> return c == e.co;)) return true;
+        iCo = AllCos.index(\c -> return c == e.co;);
+        if (iCo == -1) {
+          log.error("Company " + e.co + " not found");
+          up.cash += broker.sell(e.stocks, e.price);
+        } else {
+          price = arr.peek(AllQts.Opens)[iCo];
+          up.cash += broker.sell(e.stocks, price);
+        }
+        return false;
+      });
+
+      // BUYS and SALES.
+      arr.filterIn(up.Rebuys, \:rebuy e -> return e.date >= date;);
+      for (:morder o = up.Orders) {
+        // BUYS
+        if (
+          o.type == morder.buy &
+          !arr.any(up.Rebuys, \:rebuy e -> return e.co == o.co;) &
+          !arr.any(up.Portfolio, \:pfEntry e -> return e.co == o.co;) &
+          arr.size(up.Portfolio) < mkCts.maxCos &
+          up.cash > mkCts.minToBet
+        ) {
+          ix = Cos.index(\c -> return c == o.co;);
+          price = arr.peek(qts.Opens)[ix];
+          stocks = math.ftoi(mkCts.bet / price);
+          arr.push(up.Portfolio, pfEntry.new(o.co, stocks, price, price));
+          up.cash -= broker.buy(stocks, price);
+        }
+
+        // SALES
+        if (o.type == morder.sell) {
+          eIx = arr.index(up.Portfolio, \:pfEntry e -> return e.co == o.co;);
+          if (eIx != -1) {
+            :pfEntry e = arr.remove(up.Portfolio, eIx);
+            ix = Cos.index(\c -> return c == o.co;);
+            price = arr.peek(qts.Opens)[ix];
+            income = broker.sell(e.stocks, price);
+            up.cash += income;
+
+            cost = broker.buy(e.stocks, e.price);
+            if (income < cost * mkCts.noLossMultiplicator) {
+              endDate = time.toStr(
+                time.addDays(time.fromStr(date)!, cts.daysLoss7)
+              );
+              arr.push(up.Rebuys, rebuy.new(o.co, endDate));
+            }
+          }
+        }
+      }
+
+      // UPDATE PORTFOLIO
+      total = arr.reduce(up.Portfolio, up.cash, \r, :pfEntry e -> {
+        ix = Cos.index(\c -> return c == e.co;);
+        close = arr.peek(qts.Closes)[ix];
+        e.close = close;
+        return r + broker.sell(e.stocks, close);
+      });
+
+      // WITHDRAWALS
+      if (total > mkCts.withdrawalLimit & up.cash > mkCts.minToBet) {
+        up.withdrawals += mkCts.bet;
+        up.cash -= mkCts.bet;
+      }
+      arr.push(up.Historic, total);
+
+      // NEW ORDERS
+      Ws = {}/f/;
+      for (c = Cos) Ws.put(c, 0.0);
+      for (:mmodel m = Mds) {
+        w = m.weight;
+        Nicks = {}/b/;
+        for (:order o = m.Orders)
+          if (o.type == mkCts.orderBuy) Nicks.put(o.nick, true);
+          else Nicks.remove(o.nick);
+        for (c = Nicks.keys()) Ws[c] += w;
+      }
+      Orders = []/(morder)/;
+      for (c, w = Ws) {
+        if (w > 0.55) Orders.push(morder.new(c, morder.buy));
+        if (w < 0.45) Orders.push(morder.new(c, morder.sell));
+      }
+      up.Orders = Orders;
+    }));
+    while (iV! == i) sys.sleep(50);
+  }
+  for (th = Thrs) thread.join(th);
+
+  arr.push(updsTb.Dates, date);
+  db.write(updsTb);
+};
+
+// Executes historic updater.
+//: [[s](quotes)[[(mmodel)]]|]
+runHistoric =  \:arr Cos, :quotes qts, :arr AllMds -> {
+  Dates = qts.Dates;
+  Opens = qts.Opens;
+  Closes = qts.Closes;
+
+  hups = hupds.newDefault(Dates);
+  Hupds = [hups.b3, hups.b7, hups.all];
+  Thrs = []/<thread>/;
+  iV = [0];
+  while (iV! < Hupds.size()) {
+    i = iV!;
+    Thrs.push(thread.start(\ -> {i = iV!;
+      Mds = AllMds[i];
+      :hupd hup = Hupds[i];
+      iV! += 1;
+
+      Orders = []/(order)/;
+      Rebuys = []/(rebuy)/;
+      Portfolio = []/(pfEntry)/;
+      Withdrawals = []/s/;
+      cashV = [mkCts.initialCapital];
+      Historic = []/f/;
+      Morders = []/(morder)/;
+
+      for (idt, date = Dates) {
+        // BUYS and SALES.
+        arr.filterIn(Rebuys, \:rebuy e -> return e.date >= date;);
+        for (:morder o = Morders) {
+          // BUYS
+          if (
+            o.type == morder.buy &
+            !Rebuys.any(\:rebuy e -> return e.co == o.co;) &
+            !Portfolio.any(\:pfEntry e -> return e.co == o.co;) &
+            Portfolio.size() < mkCts.maxCos &
+            cashV! > mkCts.minToBet
+          ) {
+            ico = Cos.index(\c -> return c == o.co;);
+            price = Opens[idt][ico];
+            stocks = math.ftoi(mkCts.bet / price);
+            Portfolio.push(pfEntry.new(o.co, stocks, price, price));
+            Orders.push(order.new(date, o.co, mkCts.orderBuy, stocks, price));
+            cashV! -= broker.buy(stocks, price);
+          }
+
+          // SALES
+          if (o.type == morder.sell) {
+            eIx = Portfolio.index(\:pfEntry e -> return e.co == o.co;);
+            if (eIx != -1) {
+              :pfEntry e = Portfolio.remove(eIx);
+              ico = Cos.index(\c -> return c == o.co;);
+              price = Opens[idt][ico];
+              income = broker.sell(e.stocks, price);
+              Orders.push(order.new(date, o.co, mkCts.orderSell, e.stocks, price));
+              cashV! += income;
+
+              cost = broker.buy(e.stocks, e.price);
+              if (income < cost * mkCts.noLossMultiplicator) {
+                endDate = time.toStr(
+                  time.addDays(time.fromStr(date)!, cts.daysLoss7)
+                );
+                Rebuys.push(rebuy.new(o.co, endDate));
+              }
+            }
+          }
+        }
+
+        // UPDATE PORTFOLIO
+        total = Portfolio.reduce(cashV!, \r, :pfEntry e -> {
+          ico = Cos.index(\c -> return c == e.co;);
+          close = Closes[idt][ico];
+          e.close = close;
+          return r + broker.sell(e.stocks, close);
+        });
+        pfVal = total - cashV!;
+
+        // WITHDRAWALS
+        if (total > mkCts.withdrawalLimit & cashV! > mkCts.minToBet) {
+          Withdrawals.push(date);
+          cashV! -= mkCts.bet;
+        }
+        Historic.push(cashV! + pfVal + math.itof(Withdrawals.size()) * mkCts.bet);
+
+        // NEW ORDERS
+        Ws = {}/f/;
+        for (c = Cos) Ws.put(c, 0.0);
+        for (:mmodel m = Mds) {
+          w = m.weight;
+          Nicks = {}/b/;
+          Os = arr.takeWhile(
+            m.Orders,
+            \:order o -> return o.date <= date;
+          );
+          for (:order o = Os)
+            if (o.type == mkCts.orderBuy) Nicks.put(o.nick, true);
+            else Nicks.remove(o.nick);
+          for (c = Nicks.keys()) Ws[c] += w;
+        }
+        Morders.clear();
+        for (c, w = Ws) {
+          if (w > 0.55) Morders.push(morder.new(c, morder.buy));
+          if (w < 0.45) Morders.push(morder.new(c, morder.sell));
+        }
+      }
+      hup.Orders = Orders;
+      hup.Rebuys = Rebuys;
+      hup.Portfolio = Portfolio;
+      hup.Withdrawals = Withdrawals;
+      hup.cash = cashV!;
+      hup.Historic = Historic;
+    }));
+    while (iV! == i) sys.sleep(50);
+  }
+  for (th = Thrs) thread.join(th);
+
+  db.writeHistoric(hups);
+};

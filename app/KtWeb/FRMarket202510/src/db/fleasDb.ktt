@@ -1,0 +1,46 @@
+// Copyright 03-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Fleas data base
+
+import "data/idata";
+import "cts";
+import "db";
+
+/// Returns the fleas path.
+//: [|s]
+fleasPath = \ -> return file.cat(cts.dataPath(), ["fleas"]);;
+
+/// Returns the path of a model.
+///   mdId: Model identifier.
+//: [s|s]
+fleasModel = \mdId -> return file.cat(fleasPath(), [mdId]);;
+
+/// Initializes data base
+//: [|]
+init = \ -> file.mkdir(fleasPath());;
+
+/// Returns 'true' if exists the investors data of 'mdId'.
+///   mdId: Model identifier.
+//: [s|b]
+exists = \mdId -> return file.exists(fleasModel(mdId));;
+
+/// Reads investors data.
+///   mdId: Model identifier.
+//: [s|[(idata)]]
+read = \mdId -> return arr.fromJs(file.read(fleasModel(mdId)), idata.fromJs);;
+
+/// Writes investors data.
+///   mdId: Model identifier.
+///   Data: Investors data.
+//: [s[(idata)]|]
+write = \mdId, Entries ->
+  file.write(fleasModel(mdId), arr.toJs(Entries, idata.toJs));;
+
+/// Removes files with not existing models.
+///   Models: Current model identifiers.
+//: [[s]|]
+cleanModels = \:arr MdIds -> {
+  for (mdId = file.dir(fleasPath())) if (!MdIds.any(\id -> return id == mdId;))
+    file.del(fleasModel(mdId));
+};

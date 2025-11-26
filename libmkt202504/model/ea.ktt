@@ -1,0 +1,121 @@
+// Copyright 06-Apr-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Exponential mobil average.
+
+import "../model";
+import "doc/eaDoc";
+
+/// Returns a new 'appr' model.
+//: [|(model)]
+new = \ -> return model.new(
+    "ME",
+    "Media móvil exponencial",
+    eaDoc.text,
+    ["Días", "Banda"],
+    [model.dayParam, model.percParam]
+  );;
+
+/// Returns a new [. isSold, reference, closes array] of one company,
+/// where:
+/// state -> is true if the company is not in stock.
+/// reference -> is the new company reference.
+/// closes -> Closes used for calculating references.
+///   Ref   : Reference data of previous calculus
+///           ([. state, reference, closes array]).
+///           'reference' is equals -1 when it is not fixed the initial one.
+///   cl    : Current close.
+///   Params: Model parameters.
+//: [[. bf[f]]f[f] | [. bf[f]]]
+ref = \Ref, cl, Params -> {
+  idays = math.ftoi(Params[0]);
+  days = math.itof(idays);
+  daysUp = days + 1.0;
+  strip = Params[1];
+  stripUp = 1.0 + strip;
+  stripDown = 1.0 - strip;
+
+  isSold = Ref[0];
+  rf = Ref[1];
+  Cls = Ref[2];
+  if (rf < 0.0) return [. false, cl * stripDown, [cl, 0.0]];
+
+  avg = Cls[0];
+  cdays0 = Cls[1];
+  cdays = (cdays0 < days) ? cdays0 + 1.0 : cdays0;
+  newAvg = (cdays < days)
+    ? avg + 2.0 * (cl - avg) / (cdays + 1.0)
+    : avg + 2.0 * (cl - avg) / daysUp
+  ;
+  if (isSold) {
+    if (cl > rf) {
+      return [. false, newAvg * stripDown, [newAvg, cdays]];
+    } else {
+      newRf = newAvg * stripUp;
+      return [. true, newRf < rf ? newRf : rf, [newAvg, cdays]];
+    }
+  } else {
+    if (cl < rf) {
+      return [. true, newAvg * stripUp, [newAvg, cdays]];
+    } else {
+      newRf = newAvg * stripDown;
+      return [. false, newRf > rf ? newRf : rf, [newAvg, cdays]];
+    }
+  }
+};
+
+//: [ [[f]][f] | [[f]] ]
+refs = \:arr Closes, :arr Params -> {
+  idays = math.ftoi(Params[0]);
+  days = math.itof(idays);
+  daysUp = days + 1.0;
+  strip = Params[1];
+  stripUp = 1.0 + strip;
+  stripDown = 1.0 - strip;
+  :arr Cls0 = Closes[0];
+  ndates = Closes.size();
+  ncos = Cls0.size();
+
+  IsSolds = arr.new(false, ncos);
+  :arr Refs = arr.map(Closes[0], \cl -> return cl * stripDown;);
+  Avgs = arr.copy(Closes[0]);
+
+  Refs2 = Refs.copy();
+  AllRefs = arr.new(Refs2, ndates);
+  for (idate = 1:ndates) {
+    :arr ClosesR = Closes[idate];
+
+    for (ico = 0:ncos) {
+      c = ClosesR.get(ico);
+      rf = Refs.get(ico);
+      avg = Avgs.get(ico);
+      newAvg = idate < idays
+        ? avg + 2.0 * (c - avg) / (math.itof(idate) + 1.0)
+        : avg + 2.0 * (c - avg) / daysUp
+      ;
+      Avgs.set(ico, newAvg);
+
+      if (IsSolds.get(ico)) {
+        if (c > rf) {
+          IsSolds.set(ico, false);
+          Refs.set(ico, newAvg * stripDown);
+        } else {
+          newRf = newAvg * stripUp;
+          if (newRf < rf) Refs.set(ico, newRf);
+          else Refs.set(ico, rf);
+        }
+      } else {
+        if (c < rf) {
+          IsSolds.set(ico, true);
+          Refs.set(ico, newAvg * stripUp);
+        } else {
+          newRf = newAvg * stripDown;
+          if (newRf > rf) Refs.set(ico, newRf);
+          else Refs.set(ico, rf);
+        }
+      }
+    }
+    AllRefs.set(idate, Refs.copy());
+  }
+  return AllRefs;
+};

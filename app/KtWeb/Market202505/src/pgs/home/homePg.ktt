@@ -1,0 +1,33 @@
+// Copyright 21-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Home page.
+
+import "libdm/svrp";
+import "libdm/log";
+import "db";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      R = sys.cmd2("ps", ["-x"]);
+      isActive = str.index(
+        R!,
+        "Market start"
+      ) != -1;
+      return svrp.mk({
+          isActive: js.wb(isActive)
+        });
+    }
+    "getLog": return svrp.mk({
+        Log: log.readJs()
+      });
+    "resetLog": {
+        log.reset();
+        return svrp.mkEmpty();
+      }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

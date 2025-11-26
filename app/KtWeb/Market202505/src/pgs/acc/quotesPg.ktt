@@ -1,0 +1,140 @@
+// Copyright 23-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Page for management of historic quotes.
+
+import "libdm/svrp";
+import "libdm/log";
+import "libmkt/quote";
+import "data/co/co";
+import "data/co/cos";
+import "db";
+import "db/cosTb";
+import "db/tableChecksTb";
+import "db/quotesDb";
+import "data/qsvs";
+import "data/tableCheck";
+import "qspr";
+
+_
+//: [ss|]
+updateNick = \dbKey, nick -> {
+  :arr ChecksTb = tableChecksTb.read();
+  :arr Checks = qspr.checkTable(nick);
+  for (:tableCheck ch = Checks) {
+    chTbOp = ChecksTb.find(\t -> return ch.eqSource(t););
+    if (!!chTbOp) {
+      :tableCheck chTb = chTbOp!;
+      ch.deleted = chTb.deleted;
+    }
+  }
+  ChecksTb.filterIn(\:tableCheck ch -> return ch.nick != nick;);
+  tableChecksTb.write(ChecksTb + Checks);
+};
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      return svrp.mk({
+        dbKey: js.ws(db.readKey()),
+        Cos: arr.toJs(cosTb.read()[cos.Cos], co.toJs),
+        Checks: tableChecksTb.readJs()
+      });
+    }
+    "readNick": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+      nick = js.rs(Rq\nick);
+
+      dbKeyOp = [dbKey];
+      try {
+        :arr ChecksTb = tableChecksTb.read();
+        :arr Checks = qspr.checkTable(nick);
+        for (:tableCheck ch = Checks) {
+          chTbOp = ChecksTb.find(\t -> return ch.eqSource(t););
+          if (!!chTbOp) {
+            :tableCheck chTb = chTbOp!;
+            ch.deleted = chTb.deleted;
+          }
+        }
+        ChecksTb.filterIn(\:tableCheck ch -> return ch.nick != nick;);
+
+        dbKeyOp! = db.checkKey(dbKey);
+        if (dbKeyOp! == "") return svrp.mkOutdated();
+        tableChecksTb.write(ChecksTb + Checks);
+      } catch (e) {
+        log.error(e);
+      }
+
+      return svrp.mk({ dbKey: js.ws(dbKeyOp!) });
+    }
+    "delNick": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+      :tableCheck tc = tableCheck.fromJs(Rq\tc);
+
+      :arr Checks = tableChecksTb.read();
+      for (:tableCheck tbTc = Checks)
+        if (
+          tbTc.nick == tc.nick &
+          tbTc.date == tc.date &
+          tbTc.field == tc.field
+        )
+          tbTc.deleted = true;
+      tableChecksTb.write(Checks);
+
+      return svrp.mkEmpty();
+    }
+    "undelNick": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+      :tableCheck tc = tableCheck.fromJs(Rq\tc);
+      :arr Checks = tableChecksTb.read();
+      for (:tableCheck tbTc = Checks)
+        if (tc.eqQuote(tbTc)) tbTc.deleted = false;
+      tableChecksTb.write(Checks);
+
+      return svrp.mkEmpty();
+    }
+    "updateNick": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+      :tableCheck tc = tableCheck.fromJs(Rq\tc);
+
+      :arr Qs, err = quotesDb.readQs(tc.nick);
+      if (err != "") {
+        log.error("Quotes of " + tc.nick + " not found");
+        return svrp.mk({ok: js.wb(false)});
+      }
+      qOp = Qs.find(\:quote q -> return q.date == tc.date;);
+      if (!qOp) {
+        log.error("Quotes of " + tc.nick + " of " + tc.date + " not found");
+        return svrp.mk({ok: js.wb(false)});
+      }
+      :quote q = qOp!;
+
+      switch (tc.field) {
+        tableCheck.o: q.open = tc.svValue;
+        tableCheck.c: q.close = tc.svValue;
+        tableCheck.x: q.max = tc.svValue;
+        tableCheck.n: q.min = tc.svValue;
+        tableCheck.v: q.vol = math.ftoi(tc.svValue);
+        default: {
+          log.error("Identifier of field '" + tc.field + "' not valid");
+          return svrp.mk({ok: js.wb(false)});
+        }
+      }
+
+      quotesDb.write(tc.nick, arr.join(Qs.map(quote.toStr), "\n"));
+
+      :arr Checks = tableChecksTb.read();
+      Checks.filterIn(\tbTc -> return !tc.eqQuote(tbTc););
+      tableChecksTb.write(Checks);
+
+      return svrp.mk({ok: js.wb(true)});
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

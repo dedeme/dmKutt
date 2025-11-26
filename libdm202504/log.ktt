@@ -1,0 +1,77 @@
+// Copyright 03-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Log utility.
+/// Function 'init' must be called before any other function!!!.
+/// Log table is initialized with 'reset'.
+
+(entry) [. bss];
+
+_
+fileOp = []/s/;
+_
+sizeOp = []/i/;
+
+_
+//: [|s]
+mkDate = \-> return time.fmt(time.now(), "%D/%M/%Y(%t)");;
+
+/// New log entry constructor.
+//: [. bss]
+newEntry : isError, date, msg;
+
+//: [(entry)|s]
+toJs = \e -> return js.wa([
+    js.wb(e.isError),
+    js.ws(e.date),
+    js.ws(e.msg)
+  ]);;
+
+//: [s|(entry)]
+fromJs = \j -> {
+  a = js.ra(j);
+  return [.
+      js.rb(a[isError]),
+      js.rs(a[date]),
+      js.rs(a[msg])
+    ];
+};
+
+/// Set file path of log and its maximum size.
+///   path: File path.
+///   size: Maximum number of entries.
+//: [si|]
+init = \fpath, size -> {
+  arr.push(fileOp, fpath);
+  arr.push(sizeOp, size);
+};
+
+//: [ [(entry)] | ]
+write = \:arr L -> file.write(fileOp!, L.toJs(toJs));;
+
+//: [ | [(entry)] ]
+read = \-> return arr.map(js.ra(file.read(fileOp!)), fromJs);;
+
+/// Returns the log serialized.
+//: [|s]
+readJs = \-> return file.read(fileOp!);;
+
+/// Adds a warning to log.
+//: [s|]
+warning = \msg -> {
+  :arr L = read();
+  L.push([. false, mkDate(), str.fromRunes(str.toRunes(msg)[:400])]);
+  write(L.drop(L.size() - sizeOp!));
+};
+
+/// Adds an error to log.
+//: [s|]
+error = \msg -> {
+  :arr L = read();
+  L.push([. true, mkDate(), str.fromRunes(str.toRunes(msg)[:400])]);
+  write(L.drop(L.size() - sizeOp!));
+};
+
+/// Reset log.
+//: [|]
+reset = \-> file.write(fileOp!, "[]");;

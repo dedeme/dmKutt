@@ -1,0 +1,42 @@
+// Copyright 21-Mar-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Strategy simple test.
+
+import "libmkt/models";
+import "libmkt/model";
+import "libmkt/quotes";
+import "libmkt/strategy";
+import "extDb/quotesDb";
+import "data/simParams";
+
+/// Returns
+///   {{sales: f, cash: f, assets: f, rfAssets: f}.} :: {modelId: Rs}
+//: [{s}|{s}]
+run = \Rq -> {
+  :quotes qts = quotesDb.read();
+  List = models.list();
+
+  MdRs = {}/s/; //{{sales: f, cash: f, assets: f, rfAssets: f}.}
+  for (:model md = List) {
+    Params = []/[f]/;
+    :arr Ps = simParams.paramBases(md.id);
+    :arr Incs = simParams.paramIncrs(md.id);
+    for (i = 0:20) {
+      Params.push(Ps.copy());
+      for (j, v = Ps) Ps.set(j, v + Incs.get(j));
+    }
+
+    Gr = strategy.stGroup(md, qts, Params);
+    Sum = {sales: 0.0, assets: 0.0, accs: 0.0, rfAssets: 0.0};
+
+    for (v = Gr\Sales) Sum\sales += v;
+    for (v = Gr\Assets) Sum\assets += v;
+    for (v = Gr\Accs) Sum\accs += v;
+    for (v = Gr\RfAssets) Sum\rfAssets += v;
+
+    MdRs.put(md.id, dic.toJs(Sum, js.wf));
+  }
+
+  return MdRs;
+};

@@ -1,0 +1,32 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Investor straregy.
+
+/// Invstor strategy type.
+(istrategy) [. s[f]];
+
+/// Constructor.
+///   modelId: Market model identifier.
+///   Params : Parameters for the model.
+//: [. s[f]]
+new : modelId, Params;
+
+/// Returns 'true' if 's1' is equals to 's2'.
+//: [(istrategy)(istrategy)|b]
+eq = \s1, s2 -> return s1[modelId] == s2[modelId] & s1[Params] == s2[Params];;
+
+//: [(istrategy)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[modelId]),
+    arr.toJs(o[Params], js.wf)
+  ]);;
+
+//: [s|(istrategy)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[modelId]),
+    arr.fromJs(A[Params], js.rf)
+  ];
+};

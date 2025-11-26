@@ -1,0 +1,12 @@
+
+{
+  sys.println(sys.environ());
+  sys.println(sys.home());
+  sys.println(sys.mainPath());
+  sys.println(sys.pid());
+  sys.println(sys.user());
+
+  sys.printError("Error\n");
+  a = "";
+  sys.used(a);
+}

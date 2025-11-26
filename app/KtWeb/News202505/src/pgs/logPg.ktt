@@ -1,0 +1,25 @@
+// Copyright 26-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Home page.
+
+import "libdm/svrp";
+import "libdm/log";
+import "cts";
+import "db";
+
+//: [{s}|s]
+process = \:dic Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "getLog": return svrp.mk({
+        Log: log.readJs()
+      });
+    "resetLog": {
+        log.reset();
+        return svrp.mkEmpty();
+      }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};
+

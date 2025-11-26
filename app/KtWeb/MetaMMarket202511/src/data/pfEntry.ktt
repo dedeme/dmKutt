@@ -1,0 +1,33 @@
+// Copyright 04-Nov-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Portfolio entry data.
+
+(pfEntry) [. siff];
+
+/// Constructor.
+///   co    : Company nick.
+///   stocks: Stocks number.
+///   price : Price of one stock.
+///   close : Last 'co' close.
+//: [. siff]
+new : co, stocks, price, close;
+
+//: [(pfEntry)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[co]),
+    js.wi(o[stocks]),
+    js.wf2(o[price], 4),
+    js.wf2(o[close], 4)
+  ]);;
+
+//: [s|(pfEntry)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[0]),
+    js.ri(A[1]),
+    js.rf(A[2]),
+    js.rf(A[3])
+  ];
+};

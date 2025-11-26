@@ -1,0 +1,28 @@
+// Copyright 08-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// <rankE> data definition.
+
+/// Ranking entry type.
+(rankE) [. iifif[f]];
+
+/// Constructor.
+///   pIx    : Parameters index.
+///   pAvg   : Position in average points.
+///   avg    : Average points.
+///   pLast  : Positon in last value points.
+///   last   : Last value points.
+///   history: Average history (until 20 values) from before to after.
+//: [. iifif[f]]
+new : pIx, pAvg, avg, pLast, last, History;
+
+//: [(rankE)|s]
+toJs = \o -> return js.wa([
+    js.wi(o[pIx]),
+    js.wi(o[pAvg]),
+    js.wf(o[avg]),
+    js.wi(o[pLast]),
+    js.wf(o[last]),
+    arr.toJs(o[History], js.wf)
+  ]);;
+

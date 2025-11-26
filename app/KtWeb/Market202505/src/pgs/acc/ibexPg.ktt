@@ -1,0 +1,32 @@
+// Copyright 23-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Ibex page.
+
+import "libdm/svrp";
+import "db/ibexTb";
+import "db/cosTb";
+import "data/qsprRs";
+import "data/co/cos";
+import "sch";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      return svrp.mk({
+        ibx : ibexTb.readJs()
+      });
+    }
+    "update": {
+      mainNick = cosTb.read()[cos.mainNick];
+      :qsprRs rs = sch.ibexHistoricUpdate(mainNick);
+      return svrp.mk({
+        withError: js.wb(rs.withError),
+        withWarnings: js.wb(rs.withWarnings)
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

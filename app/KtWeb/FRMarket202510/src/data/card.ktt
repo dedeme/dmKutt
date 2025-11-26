@@ -1,0 +1,49 @@
+// Copyright 03-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Investor data.
+
+import "libmkt/model";
+import "cts";
+import "fns";
+
+(card) [. (model)[f]ifff{[. if]}{s}ii{b}];
+
+/// Constructor.
+///   md         : Investor model.
+///   Params     : Investor parameters (1 or 2 values with cts.ParamFmts decimals).
+///   paramsIx   : MMarket index of Params.
+///   assets     : Assets in euros.
+///   cash       : Market cash + withdrawals.
+///   withdrawals: Withdrawals.
+///   Portfolio  : Dictionary {nick:[.stocks, price]} of conpanies sold.
+///   Jail       : Dictionary {nick: endDate} of companies forbiden until
+///                'endDate' inclusive.
+///   days       : Days operating.
+///   sales      : Sales done.
+///   Orders     : Dictionary {nick: isSale} of operations to do.
+//: [. (model)[f]ifff{[. if]}{s}ii{b}]
+new : md, Params, paramsIx, assets,
+      cash, withdrawals, Portfolio, Jail, days, sales, Orders;
+
+//: [(card)|s]
+toJs = \o -> {
+  :model mod = o[md];
+  Fmts = cts.paramFmts()[mod.id];
+  Ps = []/s/;
+  for (i, p = o[Params]) Ps.push(js.wf2(p, Fmts[i]));
+  return js.wa([
+    fns.modelNoDocToJs(mod),
+    js.wa(Ps),
+    js.wi(o[paramsIx]),
+    js.wf2(o[assets], 2),
+    js.wf2(o[cash], 2),
+    js.wf2(o[withdrawals], 2),
+    dic.toJs(o[Portfolio], \E -> return js.wa([js.wi(E[0]), js.wf2(E[1], 2)]);),
+    dic.toJs(o[Jail], js.ws),
+    js.wi(o[days]),
+    js.wi(o[sales]),
+    dic.toJs(o[Orders], js.wb)
+  ]);
+};
+

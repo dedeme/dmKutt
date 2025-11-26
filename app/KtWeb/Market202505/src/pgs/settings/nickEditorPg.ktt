@@ -1,0 +1,186 @@
+// Copyright 22-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Nick editor page.
+
+import "libdm/svrp";
+import "libdm/log";
+import "libmkt/quote";
+import "data/qsvs";
+import "data/qsv/qsv";
+import "data/qsprRs";
+import "db/quotesDb";
+import "db/svCodesTb";
+import "db";
+import "qspr";
+import "net/readHistoric";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      mainNick, nick = [. js.rs(Rq\mainNick), js.rs(Rq\nick)];
+
+      Rp = {
+        dbKey: js.ws(db.readKey()),
+        ok: js.wb(true),
+        Quotes: "[]", // [<quote>.]
+        manuals: js.wi(0),
+        Mquotes: "[]", // [<quote>.]
+        SvIdCodes: "[]" // [[s,b,s].]
+      };
+
+      Mqs, err = quotesDb.readQs(mainNick);
+      if (err == "") {
+        Rp\Mquotes = arr.toJs(Mqs, quote.toJs);
+        :arr Qs, err = quotesDb.readQs(nick);
+        if (err == "") {
+          Rp\Quotes = arr.toJs(Qs, quote.toJs);
+          Rp\manuals = js.wi(
+            Qs.reduce(0, \r, :quote e -> return e.force ? r + 1 : r;)
+          );
+          SvIdCodes = []/s/;
+          for (:qsv sv = qsvs.list()) {
+            id = sv.id;
+            :dic Codes = svCodesTb.read(id);
+            codeOp = Codes.get(nick);
+            if (!codeOp) {
+              log.error(str.fmt(
+                "Fail reading code of %v in server %v", [. nick, id]
+              ));
+              Rp\ok = js.wb(false);
+              break;
+            } else {
+              SvIdCodes.push(js.wa([
+                js.ws(id),
+                js.wb(sv.withHistoric == qsv.active),
+                js.ws(codeOp!)
+              ]));
+            }
+          }
+          Rp\SvIdCodes = js.wa(SvIdCodes);
+        } else {
+          log.error(str.fmt("Fail reading %v: %v", [. nick, err]));
+          Rp\ok = js.wb(false);
+        }
+      } else {
+        log.error(str.fmt("Fail reading %v: %v", [. mainNick, Mqs]));
+        Rp\ok = js.wb(false);
+      }
+
+      return svrp.mk(Rp);
+    }
+    "download": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      Rp = {
+        dbKey: js.ws(dbKey),
+        result: js.ws("")
+      };
+
+      mainNick, nick = [. js.rs(Rq\mainNick), js.rs(Rq\nick)];
+      , withError, withWarnings = qspr.updateHistoric(
+        "Updating " + nick, mainNick, nick
+      );
+      if (withError) {
+        Rp\result = js.ws("error");
+      } else {
+        err = qspr.updateClosesAndRefs(nick, false);
+        if (err != "") {
+          log.error(err);
+          Rp\result = js.ws("error");
+        } else {
+          qspr.updateOperations();
+          if (withWarnings) Rp\result = js.ws("warnings");
+        }
+      }
+
+      return svrp.mk(Rp);
+    }
+    "updateCode": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      svId, nick, code = [. js.rs(Rq\svId), js.rs(Rq\nick), js.rs(Rq\code)];
+
+      // {s.}
+      NkCds = svCodesTb.read(svId);
+      NkCds[nick] = code;
+      svCodesTb.write(svId, NkCds);
+      return svrp.mk({ dbKey: js.ws(dbKey) });
+    }
+    "qModify": {
+      dbKey = db.checkKey(js.rs(Rq\dbKey));
+      if (dbKey == "") return svrp.mkOutdated();
+
+      mainNick, nick, qts = [. js.rs(Rq\mainNick), js.rs(Rq\nick), js.rs(Rq\qts)];
+      prefix = "Fail modifying " + nick;
+      , withError, withWarnings = nick == mainNick
+        ? qspr.correctStr(prefix, qts)
+        : qspr.correctStr2(prefix, qts, mainNick)
+      ;
+      ok = !withError & !withWarnings;
+      if (ok) quotesDb.write(nick, qts);
+      return svrp.mk({
+        dbKey: js.ws(dbKey),
+        ok: js.wb(ok)
+      });
+    }
+    "serverTest": {
+      server, nick = [. js.rs(Rq\server), js.rs(Rq\nick)];
+      withErrorsV = [false];
+      withWarningsV = [false];
+
+      Qs, Ws = readHistoric.oneServer(server, nick);
+      if (!!Ws) {
+        for (w = Ws) log.warning(w);
+        withWarningsV! = true;
+      }
+      if (!Qs) {
+        log.error("Quotes can no be read");
+        withErrorsV! = true;
+      }
+
+      return svrp.mk({
+        withErrors: js.wb(withErrorsV!),
+        withWarnings: js.wb(withWarningsV!)
+      });
+    }
+    "test": {
+      mainNick, nick, qts = [. js.rs(Rq\mainNick), js.rs(Rq\nick), js.rs(Rq\qts)];
+      prefix = "Fail testing " + nick;
+      , withError, withWarnings = nick == mainNick
+        ? qspr.correctStr(prefix, qts)
+        : qspr.correctStr2(prefix, qts, mainNick)
+      ;
+      return svrp.mk({
+        result: js.ws(withError
+            ? "error"
+            : withWarnings
+              ? "warnings"
+              : ""
+          )
+      });
+    }
+    "getQuotes": {
+      nick = js.rs(Rq\nick);
+
+      Rp = {
+        ok: js.wb(true),
+        Quotes: "[]" // [<quote>.]
+      };
+
+      Qs, err = quotesDb.readQs(nick);
+      if (err == "") {
+        Rp\Quotes = arr.toJs(Qs, quote.toJs);
+      } else {
+        log.error(str.fmt("Fail reading %v: %v", [. nick, err]));
+        Rp\ok = js.wb(false);
+      }
+      return svrp.mk(Rp);
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

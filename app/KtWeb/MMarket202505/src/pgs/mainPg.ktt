@@ -1,0 +1,39 @@
+// Copyright 31-Mar-2024 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Main page.
+
+import "libdm/svrp";
+import "libmkt/cts" : mcts;
+import "libmkt/models";
+import "libmkt/model";
+import "cts";
+import "db";
+
+//: [{s}|s]
+process = \:dic Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      return svrp.mk({
+        initialCapital: js.wf(mcts.initialCapital),
+        evalSteps: js.wi(cts.evalSteps),
+        minSales: js.wf(cts.minSales),
+        ParamBases:
+          dic.toJs(cts.ParamBases(), \vs -> return arr.toJs(vs, js.wf);),
+        ParamBaseIncs:
+          dic.toJs(cts.ParamBaseIncs(), \vs -> return arr.toJs(vs, js.wf);),
+        ParamEnvIncs:
+          dic.toJs(cts.ParamEnvIncs(), \vs -> return arr.toJs(vs, js.wf);),
+        Models: arr.toJs(models.list(), model.toJs),
+        orderBuy: js.wi(mcts.orderBuy),
+        orderSell: js.wi(mcts.orderSell),
+        daysLoss: js.wi(mcts.daysLoss),
+        noLossMultiplicator: js.wf(mcts.noLossMultiplicator),
+        Periods: arr.toJs(cts.periods(), js.ws),
+        datesInPeriod: js.wi(cts.datesInPeriod)
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

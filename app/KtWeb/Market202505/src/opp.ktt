@@ -1,0 +1,113 @@
+// Copyright 13-Sep-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Opportunity costs management.
+
+import "db/trading/closesTb";
+import "db/acc/diariesDb";
+import "data/acc/ann";
+import "data/acc/opr";
+import "data/acc/anns";
+import "data/opp/oppRc";
+import "data/opp/oppRs";
+
+dataOp = []/(oppRs)/;
+
+/// Returns opportunity costs data.
+//: [|(oppRs)]
+getData = \ -> {
+  if (!dataOp) createData();
+  return dataOp!;
+};
+
+/// Create opportunity costs data.
+/// NOTE: If a company has not operations en the last 2 years, it does not
+///       appear in the array.
+//: [|]
+createData = \ -> {
+  :dic Closes = closesTb.readOnlyCloses();
+  bPfsV = [0.0];
+  sPfsV = [0.0];
+  Ops = {}/[. bif]/;
+  Anns = []/(ann)/;
+  for (y = diariesDb.investorYears()[:2])
+    Anns.cat(diariesDb.read(y)[anns.Anns]);
+  Anns.filterIn(\:ann a -> {
+    :opr o = a.op;
+    t = o.type();
+    return t == opr.seT | t == opr.buT;
+  });
+  Anns.sort(\:ann a1, :ann a2 -> return a1.date < a2.date;);
+  for (:ann a = Anns) {
+    :opr o = a.op;
+    tp = o.type();
+    nk = o.nick();
+    stk = o.stocks();
+    pr = o.price();
+    if (Ops.hasKey(nk)) {
+      E = Ops[nk];
+      if (E[0]) { // buy
+        bPfsV! +=  math.itof(E[1]) * (pr - E[2]);
+        if (tp == opr.buT)
+          Ops[nk] = [. true, stk + E[1], pr];
+        else
+          Ops[nk] = [. false, stk, pr];
+      } else { // sell
+        sPfsV! +=  math.itof(E[1]) * (E[2] - pr);
+        if (tp == opr.buT)
+          Ops[nk] = [. true, stk, pr];
+        else
+          Ops[nk] = [. false, stk + E[1], pr];
+      }
+    } else {
+      Ops.put(nk, [. tp == opr.buT, stk, pr]);
+    }
+  }
+
+  :arr Nks = Closes.keys();
+  for (nick = Ops.keys())
+    if (!Nks.any(\nk -> return nk == nick;)) Ops.remove(nick);
+
+  R = []/(oppRc)/;
+
+  for (nick, v = Ops)
+    R.push(oppRc.new(nick, v[0], v[1], v[2], Closes[nick]));
+
+  if (bPfsV! >= 0.0 & sPfsV! < 0.0) {
+    v = bPfsV! + sPfsV!;
+    if (v >= 0.0) {
+      bPfsV! = v;
+      sPfsV! = 0.0;
+    } else {
+      sPfsV! = v;
+      bPfsV! = 0.0;
+    }
+  } else if (sPfsV! >= 0.0 & bPfsV! < 0.0) {
+    v = bPfsV! + sPfsV!;
+    if (v >= 0.0) {
+      sPfsV! = v;
+      bPfsV! = 0.0;
+    } else {
+      bPfsV! = v;
+      sPfsV! = 0.0;
+    }
+  }
+
+  data = oppRs.new(bPfsV!, sPfsV!, R);
+  if (!dataOp) dataOp.push(data);
+  else dataOp! = data;
+};
+
+/// Update opportunity costs data.
+//: [|]
+updateData = \ -> {
+  :oppRs data = getData();
+  Ops = data.Current;
+
+  :dic Closes = closesTb.readOnlyCloses();
+  for (i, :oppRc e = Ops) {
+    clOp = Closes.get(e.nick);
+    if (!clOp) continue;
+    Ops[i] = oppRc.new(e.nick, e.isBuy, e.stocks, e.price, clOp!);
+  }
+};

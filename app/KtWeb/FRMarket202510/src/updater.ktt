@@ -1,0 +1,206 @@
+// Copyright 02-Oct-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Update data base.
+
+import "libdm/log";
+import "libmkt/cts" : mkCts;
+import "libmkt/quotes";
+import "libmkt/models";
+import "libmkt/model";
+import "data/irs";
+import "data/irsTable";
+import "data/coData";
+import "data/idata";
+import "data/top";
+import "db/resultsDb";
+import "db/fleasDb";
+import "extDb/cosTb";
+import "extDb/quotesDb";
+import "cts";
+import "db";
+import "fns";
+
+/// Executes updater.
+//: [|]
+run = \ -> {
+  lock = db.lock();
+  if (lock != "") {
+    log.error("Updating in course since " + lock + ".");
+    return;
+  }
+
+  :arr Cos = cosTb.read();
+  :quotes qts = quotesDb.read(Cos);
+  :arr CoDates = qts.Dates;
+
+  :arr Mds = fns.modelList();
+  for (:model md = Mds) {
+    mdId = md.id;
+    while () {
+      // Make table of investor assets
+
+      date, Opens, Closes, Removed = getQuotes(mdId, Cos, qts, CoDates);
+      if (date == "") break;
+
+      Rs = getResults(md, date, Opens, Closes, Removed);
+
+      tb = irsTable.mk(Rs);
+      j = tb.toJs();
+
+      // Update daily
+
+      resultsDb.write(mdId, cts.daily, date, j);
+
+      :arr Ds = resultsDb.periodDates(mdId, cts.daily);
+      sz = Ds.size();
+      if (sz > 1) {
+        d0 = time.fromStr(Ds.peek())!;
+        d1 = time.fromStr(Ds[sz - 2])!;
+
+        // Update weekly
+        if (fns.weekInYear(d0) != fns.weekInYear(d1))
+          resultsDb.write(mdId, cts.weekly, date, j);
+
+        // Update monthly
+
+        if (time.month(d0) != time.month(d1))
+          resultsDb.write(mdId, cts.monthly, date, j);
+      }
+
+      resultsDb.clean(mdId);
+    }
+  }
+
+  // Update tops
+
+  :irs r = resultsDb.readBest(Mds.map(\:model md -> return md.id;));
+  :arr Tops = db.readTops();
+  :top tOp = Tops.find(
+    \:top t -> return t.mdId == r.mdId & t.Params == r.Params;
+  );
+  if (!tOp) {
+    Tops.push(top.new(r.mdId, r.Params, r.yearAssets()));
+    db.writeTops(Tops);
+  } else {
+    :top t = tOp!;
+    assets = r.yearAssets();
+    if (assets > t.assets) {
+      t.assets = assets;
+      db.writeTops(Tops);
+    }
+  }
+
+  db.unlock();
+};
+
+// Calculates the date to make operations and returns
+// [. today, Opens, Closes, Removed].
+//    - today  : date in format YYYYMMDD.
+//    - Opens  : Dictionary {nick: value} with opens of companies in 'Closes'
+//               plus opens of previous operations in 'opensTb' not in 'Closes'.
+//    - Closes : Dictionary {nick: value} with opens of companies in 'cosTb.read()'
+//    - Removed: Array of nicks in 'Opens' an not in 'Closes'.
+// If there is not a new date to operate, returns [. "", {}, {}, []].
+//    Cos: Companies nick.
+//    qts: Quotes of 'Cos'.
+//    CoDates: Dates of 'qts'.
+//: [s[s](quotes)[s]|[. s{f}{f}[s]]]
+getQuotes = \mdId, :arr Cos, :quotes qts, :arr CoDates -> {
+  if (!file.exists(resultsDb.modelPath(mdId)))
+    resultsDb.mkModelPath(mdId);
+
+  :arr OldDates = resultsDb.periodDates(mdId, cts.daily);
+
+  todayIxV = [0];
+  if (!!OldDates) {
+    lastDate = OldDates.peek();
+    todayIxV! = -1;
+    for (i = CoDates.size() - 1:0:-1) {
+      if (CoDates[i] > lastDate) todayIxV! = i;
+      else break;
+    }
+  }
+  todayIx = todayIxV!;
+  if (todayIx == -1) return [. "", {}/f/, {}/f/, []/s/];
+  QOpens = qts.Opens[todayIx];
+  QCloses = qts.Closes[todayIx];
+  Opens = {}/f/;
+  Closes = {}/f/;
+  for (i, nick = Cos) {
+    Opens.put(nick, QOpens[i]);
+    Closes.put(nick, QCloses[i]);
+  }
+
+  OldOpens = db.readOpens();
+  db.writeOpens(Opens);
+  Removed = []/s/;
+  for (nick, value = OldOpens) if (!Cos.any(\nk -> return nk == nick;)) {
+    Opens.put(nick, value);
+    Removed.push(nick);
+  }
+
+  return [. CoDates[todayIx], Opens, Closes, Removed];
+};
+
+// Returns results of a model.
+//: [(model)s{f}{f}[s]|[(irs)]]
+getResults = \:model md, today, :dic Opens, Closes, Removed -> {
+  mdId = md.id;
+  :arr Base = cts.paramBases()[mdId];
+  Inc = cts.paramBaseIncs()[mdId];
+
+  if (!fleasDb.exists(mdId)) {
+    base0 = Base[0];
+    inc0 = Inc[0];
+    Entries = []/(idata)/;
+    if (Base.size() == 1) {
+      for (i = 0:cts.evalSteps)
+        Entries.push(idata.new0([base0 + inc0 * math.itof(i)]));
+    } else {
+      base1 = Base[1];
+      inc1 = Inc[1];
+      for (i = 0:cts.evalSteps) for (j = 0:cts.evalSteps)
+        Entries.push(idata.new0([
+          base0 + inc0 * math.itof(i),
+          base1 + inc1 * math.itof(j)
+        ]));
+    }
+    fleasDb.write(mdId, Entries);
+  }
+
+  R = []/(irs)/;
+  Entries = fleasDb.read(mdId);
+  for (:idata entry = Entries) {
+    entry.execute(today, Opens, Removed);
+
+    assets = entry.assets(Closes);
+    investingAssets = assets - entry.withdrawals;
+    if (
+      investingAssets > mkCts.withdrawalLimit &
+      entry.investingCash() > mkCts.minToBet
+    ) {
+      entry.withdrawals += mkCts.bet;
+    }
+
+    R.push(irs.new(
+      mdId, entry.Params, entry.days, assets / mkCts.initialCapital, entry.sales
+    ));
+
+    NewCoData = {}/(coData)/;
+    for (nk, cl = Closes) {
+      coDtOp = dic.get(entry.CoData, nk);
+      :coData coDt = !coDtOp ? coData.new0() : coDtOp!;
+      :coData newCoDt = model.ref(md, coDt, cl, entry.Params);
+
+      if (coDt.isSold != newCoDt.isSold)
+        dic.put(entry.Orders, nk, newCoDt.isSold);
+
+      NewCoData.put(nk, newCoDt);
+    }
+    entry.CoData = NewCoData;
+  }
+  fleasDb.write(mdId, Entries);
+
+  return R;
+};

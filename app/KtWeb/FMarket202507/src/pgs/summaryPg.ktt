@@ -1,0 +1,62 @@
+// Copyright 29-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Summary page.
+
+import "libdm/svrp";
+import "data/invTable";
+import "data/inv";
+import "data/cardId";
+import "db";
+import "cts";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      Rs = {}/[. [f]f[f]f]/;
+      tb = invTable.fromJs(db.readLast());
+      for (:inv i = tb.Invs) {
+        mdId = i.mdId;
+
+        if (i.sales < cts.minSales) continue;
+
+        DsOp = Rs.get(mdId);
+        if (!DsOp) {
+          Rs.put(mdId, [. i.Params, i.last, i.Params, i.avg]);
+          continue;
+        }
+        Ds = DsOp!;
+        if (i.last > Ds[1]) {
+          Ds[0] = i.Params;
+          Ds[1] = i.last;
+        }
+        if (i.avg > Ds[3]) {
+          Ds[2] = i.Params;
+          Ds[3] = i.avg;
+        }
+      }
+      Results = Rs.toJs(\V -> return js.wa([
+          arr.toJs(V[0], js.wf),
+          js.wf(V[1]),
+          arr.toJs(V[2], js.wf),
+          js.wf(V[3])
+        ]););
+      return svrp.mk({
+        Results
+      });
+    }
+    "addCard": {
+      md = js.rs(Rq\md);
+      Pars = arr.fromJs(Rq\Pars, js.rf);
+      :arr Cds = db.readCards();
+      if (!Cds.any(\:cardId c -> return c.mdId == md & c.Params == Pars;)) {
+        Cds.unshift(cardId.new(md, Pars));
+        db.writeCards(Cds);
+      }
+      return svrp.mkEmpty();
+    }
+  }
+  throw "Value of rq (" + rq + ") is not valid";
+};

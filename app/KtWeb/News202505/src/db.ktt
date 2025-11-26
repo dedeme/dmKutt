@@ -1,0 +1,17 @@
+// Copyright 26-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Data base.
+
+import "libdm/log";
+import "data/newsItem";
+import "cts";
+
+/// Reinitializes database.
+/// It must be called when a new model is added.
+//: [|]
+init = \ -> {
+  file.mkdir(cts.dbPath());
+  if (!file.exists(cts.logPath())) log.reset();
+
+};

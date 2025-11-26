@@ -1,0 +1,30 @@
+// Copyright 04-Nov-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// order.buy or order.sell data.
+
+/// Order types.
+buy, sell =;
+
+(morder) [. si];
+
+/// Constructor.
+///   co: Company nick.
+///   type: morder.buy or morder.sell.
+//: [. si]
+new : co, type;
+
+//: [(morder)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[co]),
+    js.wi(o[type])
+  ]);;
+
+//: [s|(morder)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[0]),
+    js.ri(A[1])
+  ];
+};

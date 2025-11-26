@@ -1,0 +1,15 @@
+// Copyright 26-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Global functions.
+
+/// Split a line in words. The return can be an empty array.
+//: [s|[s]]
+lineSplit = \line -> {
+  rg = "[a-zA-ZñÑáéíóúüÁÉÍÓÚÜçÇ][a-zA-Z0-9ñÑáéíóúüÁÉÍÓÚÜçÇ]*";
+  :arr Matchs = regex.matches(line, rg);
+  R = []/s/;
+  for (i = 1:Matchs.size()-1:2) R.push(Matchs[i]);
+  return R;
+};
+

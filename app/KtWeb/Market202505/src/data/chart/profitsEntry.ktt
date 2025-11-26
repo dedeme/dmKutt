@@ -1,0 +1,34 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Entry for profits charts.
+
+/// Entry for profits charts type.
+(profitsEntry) [. sfff];
+
+/// Constructor
+///   date : Date in base format (YYYYMMDD)
+///   total: Total profits.
+///   acc  : Accounting profits.
+///   risk : Risk profits.
+//: [. sfff]
+new : date, total, acc, risk;
+
+//: [(profitsEntry)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[date]),
+    js.wf(o[total]),
+    js.wf(o[acc]),
+    js.wf(o[risk])
+  ]);;
+
+//: [s|(profitsEntry)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[date]),
+    js.rf(A[total]),
+    js.rf(A[acc]),
+    js.rf(A[risk])
+  ];
+};

@@ -1,0 +1,73 @@
+// Copyright 21-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Profits page.
+
+import "libdm/svrp";
+import "cts";
+import "data/chart/profitsEntry";
+import "db/acc/profitsDb";
+import "db/acc/diariesDb";
+import "db/acc/fxEquityTb";
+import "data/acc/ann";
+import "data/acc/opr";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "idata": {
+      AllEs = []/(profitsEntry)/;
+
+      for (y = arr.reverse(profitsDb.investorYears()))
+        AllEs.cat(profitsDb.read(y));
+
+      monthFisV = [0.0];
+      cyearFisV = [0.0];
+      lyearFisV = [0.0];
+      allFisV = [0.0];
+      inputV = [0.0];
+      now = time.now();
+
+      for (y = diariesDb.investorYears()) {
+        for (:ann a = diariesDb.investorAnns(y)) {
+          :time dt = time.fromStr(a.date)!;
+          :opr op = a.op;
+          tp = op.type();
+          if (tp == opr.inT) {
+            if (a.date[4:] != "0101") inputV! += op.amount();
+            continue;
+          }
+          if (tp == opr.wiT) {
+            inputV! -= op.amount();
+            continue;
+          }
+          value = switch (tp) {
+            opr.cfxT: op.price() - math.itof(op.nominal());
+            opr.ofxT, opr.osfxT: math.itof(op.nominal()) - op.price();
+            opr.prfxT: op.amount();
+            default: 0.0;
+          };
+          if (value == 0.0) continue;
+          allFisV! += value;
+          if (now.dfDays(dt) < 366) {
+            lyearFisV! += value;
+            if (now.year() == dt.year()) {
+              cyearFisV! += value;
+              if (now.month() == dt.month())
+                monthFisV! += value;
+            }
+          }
+        }
+      }
+
+      return svrp.mk({
+        AllEs: AllEs.toJs(profitsEntry.toJs),
+        FisIncs: arr.toJs([monthFisV!, cyearFisV!, lyearFisV!, allFisV!], js.wf),
+        input: js.wf(inputV!),
+        fxEquity: js.wi(fxEquityTb.read())
+      });
+    }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};

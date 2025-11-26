@@ -1,0 +1,55 @@
+// Copyright 07-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Order data.
+
+import "cts";
+
+(order) [. ssiif];
+
+/// Constructor.
+///   date  : Order date.
+///   nick  : Company nick.
+///   type  : cts.orderBuy or cts.orderSell.
+///   stocks: Stocks number.
+///   price : Price of each stock.
+//: [. ssiif]
+new : date, nick, type, stocks, price;
+
+//: [(order)|s]
+toJs = \o -> return js.wa([
+    js.ws(o[date]),
+    js.ws(o[nick]),
+    js.wi(o[type]),
+    js.wi(o[stocks]),
+    js.wf(o[price])
+  ]);;
+
+//: [s|(order)]
+fromJs = \s -> {
+  A = js.ra(s);
+  return [.
+    js.rs(A[date]),
+    js.rs(A[nick]),
+    js.ri(A[type]),
+    js.ri(A[stocks]),
+    js.rf(A[price])
+  ];
+};
+
+/// Returns the number of orders type cts.orderBuy of 'Os'.
+//: [[(order)]|i]
+buys = \Os -> {
+  sumV = [. 0];
+  for (O = Os) if (O[type] == cts.orderBuy) sumV! += 1;
+  return sumV!;
+};
+
+/// Returns the number of orders type cts.orderSell of 'Os'.
+//: [[(order)]|i]
+sales = \Os -> {
+  sumV = [. 0];
+  for (O = Os) if (O[type] == cts.orderSell) sumV! += 1;
+  return sumV!;
+};
+

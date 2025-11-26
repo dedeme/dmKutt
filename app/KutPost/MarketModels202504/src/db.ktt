@@ -1,0 +1,270 @@
+// Copyright 03-Apr-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Data base management.
+
+import "libdm/log";
+import "libmkt/models";
+import "libmkt/model";
+import "data/rkEntry";
+import "data/rk";
+import "data/rkRow";
+import "data/vals";
+import "data/ival";
+import "cts";
+import "fns";
+
+// Returns dates for ranking.
+
+_
+// Files cache {path->[assets.]}.
+Fcache = []/{[i]}/;
+
+_
+// Reads file. if file is not found, returns an empty array.
+//: [s|[i]]
+readFcache = \fpath -> {
+  if (!Fcache) Fcache.push({}/[i]/);
+  :dic Cache = Fcache!;
+  R = Cache.get(fpath);
+  if (!R) {
+    NR = file.exists(fpath)
+      ? arr.map(js.ra(file.read(fpath)), js.ri)
+      : []/i/
+    ;
+    Cache.put(fpath, NR);
+    return NR;
+  }
+  return R!;
+};
+
+_
+//: [s|[s]]
+rankDates = \period -> {
+  BaseDates = file.dir(file.cat(
+    cts.resultsDir(), [cts.modelBase, period, "prices"]
+  ));
+  arr.sort(BaseDates, \d1, d2 -> return d1 > d2;);
+  return arr.take(BaseDates, cts.globalRanks);
+};
+
+/// Initializes data base.
+/// NOTE: For add new models use commented code and calling 'MarketModelsN init'.
+//: [|]
+init = \ -> {
+  if (!file.exists(cts.dataPath())) {
+    file.mkdir(cts.resultsDir());
+    file.write(file.cat(cts.dataPath(), ["version.txt"]), cts.dataVersion);
+    for (:model md = models.list()) {
+      mdPath = file.cat(cts.resultsDir(), [md.id]);
+      for (pr = cts.periods())
+        for (tp = cts.types())
+          file.mkdir(file.cat(mdPath, [pr, tp]));
+    }
+
+    for (tp = cts.types()) {
+      dpath = file.cat(cts.ranksDir(), [tp]);
+      file.mkdir(dpath);
+      for (st = cts.stats()) {
+        RankRows = []/(rkRow)/;
+        for (period = cts.periods()) {
+          Ranks = []/(rk)/;
+          for (i, d = rankDates(period)) {
+            Entries = []/(rkEntry)/;
+            for (mdId = arr.map(models.list(), \:model md -> return md.id;))
+              Entries.push(rkEntry.new(mdId, 0, []));
+
+            Ranks.push(rk.new(d, Entries));
+          }
+          RankRows.push(rkRow.new(period, Ranks));
+        }
+        file.write(
+          file.cat(dpath, [st]),
+          RankRows.toJs(rkRow.toJs)
+        );
+      }
+    }
+
+    log.reset();
+    return;
+  }
+
+/*
+  mdPath = file.cat(cts.resultsDir(), ["SSBB2"]);
+  for (pr = cts.Periods())
+    for (tp = ["prices", "refs", "accs"])
+      file.mkdir(file.cat(mdPath, [pr, tp]));
+*/
+
+  throw "Data base already initialized";
+};
+
+/// Returns normalized results of a directory.
+/// If results can not be read, returns 'r.date = ""' and  'r.Vals = []'
+///   mdId  : Model identifier.
+///   period: One of 'cts.Periods' (diary, weekly or monthly).
+///   type  : One of 'cts.Types' (prices, accs or refs).
+///   start : Index of the first date to return values.
+///   len   : Number of dates to return values. NOTE: It can be returned less
+///           values if there is some error.
+//: [sssii|(vals)]
+readResults = \mdId, period, type, start, len -> {
+  :arr BaseDates = file.dir(file.cat(
+    cts.resultsDir(), [cts.modelBase, period, type]
+  ));
+  if (BaseDates.size() <= start) return vals.new("", []);
+
+  BaseDates.sort(\d1, d2 -> return d1 > d2;);
+  RqDates = BaseDates[start:start + len];
+
+  dir = file.cat(cts.resultsDir(), [mdId, period, type]);
+
+  date = RqDates[0];
+  if (!file.exists(dir.cat([date]))) return vals.new("", []);
+  Vals = []/[i]/;
+  Errs = []/s/;
+  for (d = RqDates) {
+    fpath = dir.cat([d]);
+    // [i.]
+    Assets = readFcache(fpath);
+    if (!!Assets)
+      Vals.push(Assets);
+    else {
+      if (d > "20240219" | mdId[:2] != "SS")
+        Errs.push("Date missing " + d);
+    }
+  }
+
+  if (!!Errs) {
+    log.error(
+      "Reading results of " + mdId + "-" + period + "-" + type + ":\n" +
+      arr.join(Errs.map(\e -> return "  - " + e;), "\n")
+    );
+  }
+  return vals.new(date, Vals);
+};
+
+_
+// Returns best value for global ranking.
+// When 'stats=="deviation"' 'r.ix == 0', because r.val is an average.
+// If the function fails, returns [].
+//   mdId  : Model identifier.
+//   period: One of 'cts.Periods' (diary, weekly or monthly).
+//   type  : One of 'cts.Types' (prices, accs or refs).
+//   idate : date index (first is 0).
+//   stats : One of 'cts.Stats' (price, average, crrAverage, deviation).
+//: [sssis|[(ival)]]
+rankValue = \mdId, period, type, idate, stats -> {
+  len = stats == "price" ? 1 : cts.statDates;
+  :vals rs = readResults(mdId, period, type, idate, len);
+  :arr Vals = rs.Vals;
+  if (!Vals) return [];
+
+  if (stats == "deviation") {
+    Vs = fns.stats("deviation", Vals);
+    return [ival.new(0, Vs[0])];
+  }
+  Vs = stats == "price" ? Vals[0] : fns.stats(stats, Vals);
+  invV = [0];
+  valV = [Vs[0]];
+  for (i, v = Vs) if (v > valV!) {
+    invV! = i;
+    valV! = v;
+  }
+  return [ival.new(invV!, valV!)];
+};
+
+/// Write ranks.
+//: [ss|]
+writeRankRows = \type, stats -> {
+  //: [si|[(rkEntry)]]
+  mkEntries = \period, idate -> {
+    Entries = []/(rkEntry)/;
+    for (mdId = arr.map(models.list(), \:model md -> return md.id;)) {
+      invValOp = rankValue(mdId, period, type, idate, stats);
+      if (!invValOp) Entries.push(rkEntry.new(mdId, 0, []));
+      else {
+        :ival invVal = invValOp!;
+        Entries.push(rkEntry.new(mdId, invVal.ix, [invVal.val]));
+      }
+    }
+    return Entries;
+  };
+
+  //: [s|[(rk)]]
+  mkRanks = \period -> {
+    Ranks = []/(rk)/;
+    for (i, d = rankDates(period)) {
+      Ranks.push(rk.new(d, mkEntries(period, i)));
+    }
+    return Ranks;
+  };
+
+  RankRows = []/(rkRow)/;
+  for (period = cts.periods()) {
+    RankRows.push(rkRow.new(period, mkRanks(period)));
+  }
+
+  file.write(
+    file.cat(cts.ranksDir(), [type, stats]),
+    js.wa(RankRows.map(rkRow.toJs))
+  );
+};
+
+/// Returns ranks.
+//: [ss|[(rkRow)]]
+readRankRows = \type, stats ->
+  return arr.map(
+    js.ra(file.read(file.cat(cts.ranksDir(), [type, stats]))), rkRow.fromJs
+  );;
+
+/// Updates data base.
+///   mdId: Model intentifier.
+///   date: Last date of data.
+///   Prices: Assets by prices.
+///   Accs  : Assets by accounting.
+///   Refs  : Assets by references.
+//: [ss[i][i][i]|]
+update = \mdId, date, Prices, Accs, Refs -> {
+  //: [s|i]
+  weekInYear = \d -> {
+    :time tm = time.fromStr(d)!;
+    day1 = time.newDate(1, 1, tm.year());
+    wdEn = time.weekday(day1);
+    wd = wdEn == 0 ? 6 : wdEn - 1;
+    dfDays = tm.dfDays(day1);
+    return (dfDays + wd) / 7;
+  };
+
+  modelPath = file.cat(cts.resultsDir(), [mdId]);
+  for (tp = cts.types()) {
+    data = arr.toJs(switch (tp) {
+      "prices": Prices;
+      "accs": Accs;
+      default: Refs;
+    }, js.wi);
+    file.write(modelPath.cat([cts.periods()[0], tp, date]), data);
+
+    :file wPath = modelPath.cat([cts.periods()[1], tp]);
+    :arr Wdates = file.dir(wPath);
+    if (!Wdates) {
+      file.write(wPath.cat([date]), data);
+    } else {
+      Wdates.sort(\d1, d2 -> return d1 < d2;);
+      lastDate = Wdates.peek();
+      if (lastDate == date | weekInYear(lastDate) != weekInYear(date))
+        file.write(wPath.cat([date]), data);
+    }
+
+    mPath = modelPath.cat([cts.periods()[2], tp]);
+    :arr Mdates = file.dir(mPath);
+    if (!Mdates) {
+      file.write(mPath.cat([date]), data);
+    } else {
+      Mdates.sort(\d1, d2 -> return d1 < d2;);
+      lastDate = Mdates.peek();
+      if (lastDate == date | lastDate[:6] != date[:6])
+        file.write(mPath.cat([date]), data);
+    }
+  }
+};

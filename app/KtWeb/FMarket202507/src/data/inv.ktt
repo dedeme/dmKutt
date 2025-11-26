@@ -1,0 +1,69 @@
+// Copyright 27-Jul-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Data table entry.
+
+import "cts";
+
+(inv) [. s[f]fffi];
+
+/// Constructor.
+///   mdId    : Model id (MM, SSBB0, ...)
+///   Params  : Investor parameters (1 or 2 values with cts.ParamFmts decimals).
+///   last    : Last assets (Base 1, six decimals)
+///   avg     : Average assets (Base 1, six decimals, exponential average
+///             with cts.evalDays samples)
+///   sales   : Historic sells (two decimals, exponential average with
+///             cts.evalDays samples)
+///   nSamples: Current used samples (maximum cts.evalDays)
+//: [. s[f]fffi]
+new : mdId, Params, last, avg, sales, nSamples;
+
+/// Returns the investor identifier.
+//: [(inv)|s]
+id = \i -> {
+  md = i[mdId];
+  Fmts = cts.ParamFmts()[md];
+  Ps = []/s/;
+  for (i, p = i[Params]) Ps.push(js.wf2(p, Fmts[i]));
+  return md + js.wa(Ps);
+};
+
+/// Returns the investor parameters JSONized.
+//: [(inv)|s]
+paramsToStr = \i -> {
+  md = i[mdId];
+  Fmts = cts.ParamFmts()[md];
+  Ps = []/s/;
+  for (i, p = i[Params]) Ps.push(js.wf2(p, Fmts[i]));
+  return js.wa(Ps);
+};
+
+//: [(inv)|s]
+toJs = \o -> {
+  md = o[mdId];
+  Fmts = cts.ParamFmts()[md];
+  Ps = []/s/;
+  for (i, p = o[Params]) Ps.push(js.wf2(p, Fmts[i]));
+  return js.wa([
+    js.ws(md),
+    js.wa(Ps),
+    js.wf2(o[last], 6),
+    js.wf2(o[avg], 6),
+    js.wf2(o[sales], 2),
+    js.wi(o[nSamples])
+  ]);
+};
+
+//: [s|(inv)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.rs(A[0]),
+    arr.fromJs(A[1], js.rf),
+    js.rf(A[2]),
+    js.rf(A[3]),
+    js.rf(A[4]),
+    js.ri(A[5])
+  ];
+};

@@ -1,0 +1,50 @@
+// Copyright 12-May-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Annotations table data.
+
+import "ann";
+
+/// Annotations table type
+(anns) [. i[(ann)]];
+
+/// Constructor. Use 'new'.
+///   nextId: Next annotation identifier.
+///   Anns  : Annotations array.
+//: [. i[(ann)]]
+new0 : nextId, Anns;
+
+/// Constructor of an empty annotations table.
+//: [|(anns)]
+new = \ -> return new0(0, []);;
+
+/// Adds a n annotation. 'A.id' will be overwritten.
+//: [(anns)(ann)|]
+add = \as, :ann a -> {
+  a.id = as[nextId];
+  arr.push(as[Anns], a);
+  as[nextId] += 1;
+};
+
+/// Deletes la annotation with identifier 'i' if exists.
+//: [(anns)i|]
+del = \as, i -> {
+  ix = arr.index(as[Anns], \:ann a -> return a.id == i;);
+  if (ix != -1) arr.remove(as[Anns], ix);
+};
+
+//: [(anns)|s]
+toJs = \o -> return js.wa([
+    js.wi(o[nextId]),
+    arr.toJs(o[Anns], ann.toJs)
+  ]);;
+
+//: [s|(anns)]
+fromJs = \j -> {
+  A = js.ra(j);
+  return [.
+    js.ri(A[nextId]),
+    arr.fromJs(A[Anns], ann.fromJs)
+  ];
+};
+

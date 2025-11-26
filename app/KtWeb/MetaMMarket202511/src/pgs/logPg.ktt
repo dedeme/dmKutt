@@ -1,0 +1,23 @@
+// Copyright 07-Nov-2025 ºDeme
+// GNU General Public License - V3 <http://www.gnu.org/licenses/>
+
+/// Log page.
+
+import "libdm/svrp";
+import "libdm/log";
+import "db";
+
+//: [{s}|s]
+process = \Rq -> {
+  rq = js.rs(Rq\rq);
+  switch (rq) {
+    "getLog": return svrp.mk({
+        Log: log.readJs()
+      });
+    "resetLog": {
+        log.reset();
+        return svrp.mkEmpty();
+      }
+    default: throw "Value of rq (" + rq + ") is not valid";
+  }
+};
